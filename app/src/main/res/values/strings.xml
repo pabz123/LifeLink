@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LifeLink Uganda</string>
+    <string name="app_tagline">Real-time blood donor matching for Uganda</string>
+    <string name="content_logo">LifeLink Uganda logo, a red blood drop with a plus sign</string>
+
+    <!-- Login -->
+    <string name="login_heading">Log in</string>
+    <string name="hint_email">Email address</string>
+    <string name="hint_password">Password</string>
+    <string name="remember_me">Keep me signed in</string>
+    <string name="action_login">Log in</string>
+    <string name="signing_in">Signing in...</string>
+    <string name="link_register">New to LifeLink? Create an account</string>
+    <string name="welcome_back">Welcome back, %1$s</string>
+    <string name="login_failed">Incorrect email or password.</string>
+    <string name="error_generic">Something went wrong. Please try again.</string>
+
+    <!-- Register -->
+    <string name="register_heading">Create your account</string>
+    <string name="register_subheading">Join donors and hospitals saving lives across Uganda.</string>
+    <string name="hint_full_name">Full name</string>
+    <string name="hint_phone">Phone number (07XXXXXXXX)</string>
+    <string name="hint_confirm_password">Confirm password</string>
+    <string name="label_blood_group">Blood group</string>
+    <string name="label_role">I am registering as</string>
+    <string name="role_donor">Blood donor</string>
+    <string name="role_hospital">Hospital or blood bank staff</string>
+    <string name="consent_text">I agree that LifeLink may store my details to match me with blood requests, as described under the Data Protection and Privacy Act, 2019.</string>
+    <string name="action_register">Create account</string>
+    <string name="creating_account">Creating account...</string>
+    <string name="link_login">Already registered? Log in</string>
+    <string name="account_created">Account created. You can now log in.</string>
+
+    <!-- Validation messages -->
+    <string name="error_name_required">Enter your full name.</string>
+    <string name="error_name_invalid">Use letters only, 2 to 60 characters.</string>
+    <string name="error_email_required">Enter your email address.</string>
+    <string name="error_email_invalid">Enter a valid email address, such as name@example.com.</string>
+    <string name="error_email_taken">This email is already registered. Try logging in.</string>
+    <string name="error_phone_required">Enter your phone number.</string>
+    <string name="error_phone_invalid">Enter a Ugandan mobile number, such as 0772123456.</string>
+    <string name="error_blood_group_required">Choose your blood group.</string>
+    <string name="error_password_required">Enter your password.</string>
+    <string name="error_password_short">Use at least 8 characters.</string>
+    <string name="error_password_long">Use at most 64 characters.</string>
+    <string name="error_password_weak">Include at least one letter and one number.</string>
+    <string name="error_confirm_required">Re-enter your password.</string>
+    <string name="error_confirm_mismatch">The passwords do not match.</string>
+    <string name="error_consent_required">You must agree before creating an account.</string>
+
+    <!-- Home -->
+    <string name="home_greeting">Hello, %1$s</string>
+    <string name="role_badge_donor">Donor</string>
+    <string name="role_badge_hospital">Hospital staff</string>
+    <string name="content_logout">Log out</string>
+    <string name="logout_done">You have been logged out.</string>
+    <string name="status_eligible_title">Eligible to donate</string>
+    <string name="status_eligible_detail">Your last donation was %1$d days ago. You can donate again.</string>
+    <string name="status_wait_title">Not yet eligible</string>
+    <string name="status_wait_detail">You can donate again in %1$d days.</string>
+    <string name="status_first_title">Ready to donate</string>
+    <string name="status_first_detail">No donations recorded yet.</string>
+    <string name="status_hospital_title">Open blood requests</string>
+    <string name="status_hospital_detail">%1$d requests are waiting for donors.</string>
+    <string name="list_header_donor">Your recent donations</string>
+    <string name="list_header_hospital">Your recent requests</string>
+    <string name="empty_records">No records yet.</string>
+    <string name="record_selected">Selected: %1$s</string>
+    <string name="record_subtitle">%1$s, %2$s</string>
+
+    <!-- Record status labels (colour is never the only signal) -->
+    <string name="record_status_completed">Completed</string>
+    <string name="record_status_open">Open</string>
+    <string name="record_status_urgent">Urgent</string>
+    <string name="record_status_fulfilled">Fulfilled</string>
+
+    <plurals name="record_units">
+        <item quantity="one">%d unit</item>
+        <item quantity="other">%d units</item>
+    </plurals>
+</resources>

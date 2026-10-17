@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base parent styles for AAPT dot notation inheritance -->
+    <style name="LL" />
+    <style name="LL.Text" />
+
+    <!-- Text styles from the style guide -->
+    <style name="LL.Text.Headline">
+        <item name="android:textSize">@dimen/text_headline</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="LL.Text.Title">
+        <item name="android:textSize">@dimen/text_title</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="LL.Text.Body">
+        <item name="android:textSize">@dimen/text_body</item>
+        <item name="android:textColor">@color/text_primary</item>
+    </style>
+
+    <style name="LL.Text.Caption">
+        <item name="android:textSize">@dimen/text_caption</item>
+        <item name="android:textColor">@color/text_secondary</item>
+    </style>
+
+    <style name="LL.Text.OnPrimaryTitle">
+        <item name="android:textSize">@dimen/text_title</item>
+        <item name="android:textColor">@color/brand_on_primary</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="LL.Text.OnPrimaryCaption">
+        <item name="android:textSize">@dimen/text_caption</item>
+        <item name="android:textColor">@color/brand_on_primary</item>
+    </style>
+
+    <style name="LL.Text.Error">
+        <item name="android:textSize">@dimen/text_caption</item>
+        <item name="android:textColor">@color/status_error</item>
+    </style>
+
+    <!-- White rounded card used on Login, Home status and list rows -->
+    <style name="LL.Card">
+        <item name="android:background">@drawable/bg_card</item>
+        <item name="android:padding">@dimen/space_m</item>
+    </style>
+</resources>
