@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Register. A long form: ScrollView + vertical LinearLayout is the simplest layout that
-     works in portrait, landscape and with the keyboard open. The form column is
-     capped at 560dp and centred by ConstraintLayout so it does not stretch across a tablet.
-     Choice controls: Spinner (blood group), RadioGroup (role), CheckBox (consent). -->
+     works in portrait, landscape and with the keyboard open. The form column is capped at
+     560dp and centred by ConstraintLayout so it does not stretch across a tablet.
+     Choice controls: RadioGroup (role), Spinner (blood group, security question),
+     CheckBox (consent). The blood group block is hidden for hospital staff, who have none. -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -99,36 +100,11 @@
             </com.google.android.material.textfield.TextInputLayout>
 
             <TextView
-                android:id="@+id/tvBloodGroupLabel"
-                style="@style/LL.Text.Body"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_s"
-                android:labelFor="@+id/spinBloodGroup"
-                android:text="@string/label_blood_group"
-                android:textStyle="bold" />
-
-            <Spinner
-                android:id="@+id/spinBloodGroup"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:entries="@array/blood_groups"
-                android:minHeight="@dimen/touch_target" />
-
-            <TextView
-                android:id="@+id/tvBloodGroupError"
-                style="@style/LL.Text.Error"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/error_blood_group_required"
-                android:visibility="gone" />
-
-            <TextView
                 android:id="@+id/tvRoleLabel"
                 style="@style/LL.Text.Body"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_m"
+                android:layout_marginTop="@dimen/space_s"
                 android:labelFor="@+id/rgRole"
                 android:text="@string/label_role"
                 android:textStyle="bold" />
@@ -157,12 +133,52 @@
                     android:textSize="@dimen/text_body" />
             </RadioGroup>
 
+            <LinearLayout
+                android:id="@+id/groupBloodGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvBloodGroupLabel"
+                    style="@style/LL.Text.Body"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_s"
+                    android:labelFor="@+id/spinBloodGroup"
+                    android:text="@string/label_blood_group"
+                    android:textStyle="bold" />
+
+                <Spinner
+                    android:id="@+id/spinBloodGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:entries="@array/blood_groups"
+                    android:minHeight="@dimen/touch_target" />
+
+                <TextView
+                    android:id="@+id/tvBloodGroupHelp"
+                    style="@style/LL.Text.Caption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/help_blood_group_unknown" />
+
+                <TextView
+                    android:id="@+id/tvBloodGroupError"
+                    style="@style/LL.Text.Error"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_xs"
+                    android:text="@string/error_blood_group_required"
+                    android:visibility="gone" />
+            </LinearLayout>
+
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/layoutPassword"
                 style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_s"
+                android:layout_marginTop="@dimen/space_m"
                 android:hint="@string/hint_password"
                 app:endIconMode="password_toggle"
                 app:errorEnabled="true">
@@ -192,8 +208,55 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:autofillHints="newPassword"
-                    android:imeOptions="actionDone"
+                    android:imeOptions="actionNext"
                     android:inputType="textPassword"
+                    android:maxLines="1" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <TextView
+                android:id="@+id/tvSecurityQuestionLabel"
+                style="@style/LL.Text.Body"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_s"
+                android:labelFor="@+id/spinSecurityQuestion"
+                android:text="@string/label_security_question"
+                android:textStyle="bold" />
+
+            <Spinner
+                android:id="@+id/spinSecurityQuestion"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:entries="@array/security_questions"
+                android:minHeight="@dimen/touch_target" />
+
+            <TextView
+                android:id="@+id/tvSecurityQuestionError"
+                style="@style/LL.Text.Error"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="@dimen/space_xs"
+                android:text="@string/error_security_question_required"
+                android:visibility="gone" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/layoutSecurityAnswer"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_xs"
+                android:hint="@string/hint_security_answer"
+                app:errorEnabled="true"
+                app:helperText="@string/help_security_answer"
+                app:helperTextEnabled="true">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/txtSecurityAnswer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:imeOptions="actionDone"
+                    android:inputType="text|textCapSentences"
+                    android:maxLength="60"
                     android:maxLines="1" />
             </com.google.android.material.textfield.TextInputLayout>
 

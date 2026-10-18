@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Position 0 is a prompt, not a real choice. Validators reject it. -->
+    <!-- Blood group choices. Position 0 is a prompt, not a real choice. The last item lets
+         people who have never been tested register honestly. blood_group_codes holds the
+         value stored in the database for each position (same order). -->
     <string-array name="blood_groups">
         <item>Select blood group</item>
         <item>A+</item>
@@ -11,5 +13,68 @@
         <item>AB-</item>
         <item>O+</item>
         <item>O-</item>
+        <item>I do not know my blood group</item>
+    </string-array>
+
+    <string-array name="blood_group_codes" translatable="false">
+        <item></item>
+        <item>A+</item>
+        <item>A-</item>
+        <item>B+</item>
+        <item>B-</item>
+        <item>AB+</item>
+        <item>AB-</item>
+        <item>O+</item>
+        <item>O-</item>
+        <item>UNKNOWN</item>
+    </string-array>
+
+    <!-- Security questions for password reset. Position 0 is a prompt. The number of real
+         questions must equal Validators.SECURITY_QUESTION_COUNT. -->
+    <string-array name="security_questions">
+        <item>Select a security question</item>
+        <item>What was the name of your primary school?</item>
+        <item>In which town or village were you born?</item>
+        <item>What was your childhood nickname?</item>
+        <item>What is the name of your favourite teacher?</item>
+    </string-array>
+
+    <!-- Blood group choices on the add or edit record form. No "unknown" here: a donation or a
+         request always concerns one real group. Position 0 is a prompt. -->
+    <string-array name="record_blood_groups">
+        <item>Select blood group</item>
+        <item>A+</item>
+        <item>A-</item>
+        <item>B+</item>
+        <item>B-</item>
+        <item>AB+</item>
+        <item>AB-</item>
+        <item>O+</item>
+        <item>O-</item>
+    </string-array>
+
+    <string-array name="record_blood_group_codes" translatable="false">
+        <item></item>
+        <item>A+</item>
+        <item>A-</item>
+        <item>B+</item>
+        <item>B-</item>
+        <item>AB+</item>
+        <item>AB-</item>
+        <item>O+</item>
+        <item>O-</item>
+    </string-array>
+
+    <!-- Status choices for a blood request (hospital staff). A donation is always completed. -->
+    <string-array name="request_statuses">
+        <item>Open</item>
+        <item>Urgent</item>
+        <item>Fulfilled</item>
+    </string-array>
+
+    <string-array name="request_status_codes" translatable="false">
+        <item>OPEN</item>
+        <item>URGENT</item>
+        <item>FULFILLED</item>
     </string-array>
 </resources>

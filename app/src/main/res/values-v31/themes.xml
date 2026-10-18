@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ shows a system splash (launcher icon on a coloured background) before the
+         app starts. Matching its background to our splash screen makes the two feel like one. -->
+    <style name="Theme.LifeLink.Splash" parent="Theme.LifeLink">
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:windowSplashScreenBackground">@color/background</item>
+    </style>
+</resources>

@@ -10,6 +10,7 @@
     <color name="background">#FFF8F7</color>
     <color name="surface">#FFFFFF</color>
     <color name="divider">#E6DCDB</color>
+    <color name="avatar_background">#FDECEA</color>
 
     <!-- Text -->
     <color name="text_primary">#1F1B1B</color>
@@ -19,4 +20,9 @@
     <color name="status_success">#2E7D32</color>
     <color name="status_warning">#8A5A00</color>
     <color name="status_error">#B3261E</color>
+
+    <!-- Home hero card (drawn on the red gradient) -->
+    <color name="hero_ring_track">#40FFFFFF</color>
+    <color name="hero_ring_progress">#FFFFFF</color>
+    <color name="hero_chip_background">#33000000</color>
 </resources>

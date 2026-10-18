@@ -11,4 +11,10 @@
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
     </style>
+
+    <!-- Theme of SplashActivity only. Before Android 12 the window shows a plain background
+         colour until the splash layout is ready; Android 12+ overrides this in values-v31. -->
+    <style name="Theme.LifeLink.Splash" parent="Theme.LifeLink">
+        <item name="android:windowBackground">@color/background</item>
+    </style>
 </resources>

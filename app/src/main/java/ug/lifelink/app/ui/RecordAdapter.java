@@ -9,7 +9,6 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -18,6 +17,7 @@ import java.util.Locale;
 
 import ug.lifelink.app.R;
 import ug.lifelink.app.model.BloodRecord;
+import ug.lifelink.app.util.BloodGroups;
 
 /**
  * The adapter is the bridge between the data (a List of BloodRecord) and the ListView.
@@ -51,7 +51,7 @@ public class RecordAdapter extends ArrayAdapter<BloodRecord> {
 
         BloodRecord record = getItem(position);
         if (record != null) {
-            holder.tvGroup.setText(record.getBloodGroup());
+            holder.tvGroup.setText(BloodGroups.badgeText(record.getBloodGroup()));
             holder.tvTitle.setText(record.getFacility());
 
             String units = getContext().getResources()
@@ -59,36 +59,9 @@ public class RecordAdapter extends ArrayAdapter<BloodRecord> {
             String date = dateFormat.format(new Date(record.getCreatedAt()));
             holder.tvSubtitle.setText(getContext().getString(R.string.record_subtitle, units, date));
 
-            bindStatus(holder.tvStatus, record.getStatus());
+            StatusLabels.apply(getContext(), holder.tvStatus, record.getStatus());
         }
         return row;
-    }
-
-    /** The status is always shown as words; colour only reinforces it. */
-    private void bindStatus(TextView view, String status) {
-        int textRes;
-        int colorRes;
-        switch (status) {
-            case BloodRecord.STATUS_URGENT:
-                textRes = R.string.record_status_urgent;
-                colorRes = R.color.status_error;
-                break;
-            case BloodRecord.STATUS_OPEN:
-                textRes = R.string.record_status_open;
-                colorRes = R.color.status_warning;
-                break;
-            case BloodRecord.STATUS_FULFILLED:
-                textRes = R.string.record_status_fulfilled;
-                colorRes = R.color.status_success;
-                break;
-            case BloodRecord.STATUS_COMPLETED:
-            default:
-                textRes = R.string.record_status_completed;
-                colorRes = R.color.status_success;
-                break;
-        }
-        view.setText(textRes);
-        view.setTextColor(ContextCompat.getColor(getContext(), colorRes));
     }
 
     private static class ViewHolder {

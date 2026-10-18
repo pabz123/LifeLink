@@ -15,10 +15,18 @@
 
     <!-- Shape and touch targets -->
     <dimen name="corner_radius">12dp</dimen>
+    <dimen name="hero_radius">20dp</dimen>
     <dimen name="touch_target">48dp</dimen>
     <dimen name="button_height">56dp</dimen>
     <dimen name="card_max_width">480dp</dimen>
     <dimen name="form_max_width">560dp</dimen>
     <dimen name="logo_size">96dp</dimen>
+    <dimen name="splash_logo_size">120dp</dimen>
     <dimen name="blood_badge_size">56dp</dimen>
+    <dimen name="avatar_size">44dp</dimen>
+    <dimen name="ring_size">112dp</dimen>
+    <dimen name="ring_stroke">10dp</dimen>
+
+    <!-- Side padding of the Home list. Larger screens override it so rows do not stretch. -->
+    <dimen name="list_side_padding">16dp</dimen>
 </resources>

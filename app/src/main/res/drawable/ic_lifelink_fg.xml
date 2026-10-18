@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher foreground: white blood drop with a red heart. 108x108 canvas; the artwork
+     stays inside the 66dp safe zone so no launcher mask can crop it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,20.65 C54,20.65 29.85,44.80 29.85,62.05 A24.15,24.15 0 0 0 78.15,62.05 C78.15,44.80 54,20.65 54,20.65 Z" />
+    <path
+        android:fillColor="@color/brand_primary"
+        android:pathData="M54.00,75.15 C52.05,73.20 42.30,66.38 42.30,59.55 C42.30,54.67 45.81,51.75 49.71,51.75 C52.05,51.75 53.41,52.92 54.00,54.48 C54.59,52.92 55.95,51.75 58.29,51.75 C62.19,51.75 65.70,54.67 65.70,59.55 C65.70,66.38 55.95,73.20 54.00,75.15 Z" />
+</vector>

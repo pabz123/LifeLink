@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Portrait Home. Top to bottom: header bar, status card, list header, record list.
-     The ListView takes all remaining height (0dp) so it scrolls on its own. -->
+<!-- Portrait Home. A slim top bar (avatar, greeting, menu) above one scrolling ListView.
+     The ListView's header (layout/header_home.xml) holds the hero card and urgent requests,
+     so everything scrolls together and the list gets the whole screen. -->
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -9,10 +10,9 @@
     android:fitsSystemWindows="true">
 
     <LinearLayout
-        android:id="@+id/headerBar"
+        android:id="@+id/topBar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:background="@color/brand_primary"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="@dimen/space_m"
@@ -23,69 +23,47 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
+        <TextView
+            android:id="@+id/tvAvatar"
+            android:layout_width="@dimen/avatar_size"
+            android:layout_height="@dimen/avatar_size"
+            android:background="@drawable/bg_avatar"
+            android:gravity="center"
+            android:textColor="@color/brand_primary"
+            android:textSize="@dimen/text_body"
+            android:textStyle="bold" />
+
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/space_m"
             android:layout_weight="1"
             android:orientation="vertical">
 
             <TextView
                 android:id="@+id/tvGreeting"
-                style="@style/LL.Text.OnPrimaryTitle"
+                style="@style/LL.Text.Caption"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" />
 
             <TextView
-                android:id="@+id/tvRoleBadge"
-                style="@style/LL.Text.OnPrimaryCaption"
+                android:id="@+id/tvName"
+                style="@style/LL.Text.Title"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1" />
         </LinearLayout>
 
         <ImageButton
-            android:id="@+id/btnLogout"
+            android:id="@+id/btnMenu"
             android:layout_width="@dimen/touch_target"
             android:layout_height="@dimen/touch_target"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/content_logout"
-            android:src="@drawable/ic_logout" />
+            android:contentDescription="@string/content_menu"
+            android:src="@drawable/ic_more_vert"
+            android:tint="@color/text_secondary" />
     </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/cardStatus"
-        style="@style/LL.Card"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_margin="@dimen/space_m"
-        android:orientation="vertical"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/headerBar">
-
-        <TextView
-            android:id="@+id/tvStatusTitle"
-            style="@style/LL.Text.Title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-        <TextView
-            android:id="@+id/tvStatusDetail"
-            style="@style/LL.Text.Caption"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/space_xs" />
-    </LinearLayout>
-
-    <TextView
-        android:id="@+id/tvListHeader"
-        style="@style/LL.Text.Title"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="@dimen/space_m"
-        android:layout_marginEnd="@dimen/space_m"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/cardStatus" />
 
     <ListView
         android:id="@+id/listRecords"
@@ -94,21 +72,13 @@
         android:clipToPadding="false"
         android:divider="@android:color/transparent"
         android:dividerHeight="@dimen/space_s"
-        android:padding="@dimen/space_m"
+        android:paddingStart="@dimen/list_side_padding"
+        android:paddingTop="@dimen/space_s"
+        android:paddingEnd="@dimen/list_side_padding"
+        android:paddingBottom="@dimen/space_l"
+        android:scrollbars="none"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/tvListHeader" />
-
-    <TextView
-        android:id="@+id/tvEmpty"
-        style="@style/LL.Text.Caption"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:gravity="center"
-        android:text="@string/empty_records"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/tvListHeader" />
+        app:layout_constraintTop_toBottomOf="@+id/topBar" />
 </androidx.constraintlayout.widget.ConstraintLayout>

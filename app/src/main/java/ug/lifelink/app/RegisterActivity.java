@@ -24,13 +24,16 @@ import java.util.concurrent.Executors;
 
 import ug.lifelink.app.data.UserRepository;
 import ug.lifelink.app.model.User;
+import ug.lifelink.app.util.BloodGroups;
 import ug.lifelink.app.util.SimpleTextWatcher;
 import ug.lifelink.app.util.Validators;
 
 /**
- * Register screen. Validates every field, then saves the new user to SQLite with a
- * salted password hash. Choice controls: Spinner (blood group), RadioGroup (role),
- * CheckBox (consent).
+ * Register screen. Validates every field, then saves the new user to SQLite with a salted
+ * password hash and a hashed security answer.
+ *
+ * Role matters: donors choose a blood group (or "I do not know"), while hospital and blood
+ * bank staff have no blood group to give, so that block is hidden for them.
  */
 public class RegisterActivity extends AppCompatActivity {
 
@@ -41,13 +44,18 @@ public class RegisterActivity extends AppCompatActivity {
     private TextInputLayout layoutPhone;
     private TextInputLayout layoutPassword;
     private TextInputLayout layoutConfirm;
+    private TextInputLayout layoutSecurityAnswer;
     private TextInputEditText txtName;
     private TextInputEditText txtEmail;
     private TextInputEditText txtPhone;
     private TextInputEditText txtPassword;
     private TextInputEditText txtConfirm;
+    private TextInputEditText txtSecurityAnswer;
+    private View groupBloodGroup;
     private Spinner spinBloodGroup;
     private TextView tvBloodGroupError;
+    private Spinner spinSecurityQuestion;
+    private TextView tvSecurityQuestionError;
     private RadioGroup rgRole;
     private CheckBox chkConsent;
     private TextView tvConsentError;
@@ -55,6 +63,7 @@ public class RegisterActivity extends AppCompatActivity {
     private TextView tvLoginLink;
 
     private UserRepository users;
+    private String[] bloodGroupCodes;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
 
     @Override
@@ -63,7 +72,9 @@ public class RegisterActivity extends AppCompatActivity {
         setContentView(R.layout.activity_register);
         bindViews();
         users = new UserRepository(this);
+        bloodGroupCodes = getResources().getStringArray(R.array.blood_group_codes);
         setUpListeners();
+        updateBloodGroupVisibility();
     }
 
     @Override
@@ -78,13 +89,18 @@ public class RegisterActivity extends AppCompatActivity {
         layoutPhone = findViewById(R.id.layoutPhone);
         layoutPassword = findViewById(R.id.layoutPassword);
         layoutConfirm = findViewById(R.id.layoutConfirm);
+        layoutSecurityAnswer = findViewById(R.id.layoutSecurityAnswer);
         txtName = findViewById(R.id.txtName);
         txtEmail = findViewById(R.id.txtEmail);
         txtPhone = findViewById(R.id.txtPhone);
         txtPassword = findViewById(R.id.txtPassword);
         txtConfirm = findViewById(R.id.txtConfirm);
+        txtSecurityAnswer = findViewById(R.id.txtSecurityAnswer);
+        groupBloodGroup = findViewById(R.id.groupBloodGroup);
         spinBloodGroup = findViewById(R.id.spinBloodGroup);
         tvBloodGroupError = findViewById(R.id.tvBloodGroupError);
+        spinSecurityQuestion = findViewById(R.id.spinSecurityQuestion);
+        tvSecurityQuestionError = findViewById(R.id.tvSecurityQuestionError);
         rgRole = findViewById(R.id.rgRole);
         chkConsent = findViewById(R.id.chkConsent);
         tvConsentError = findViewById(R.id.tvConsentError);
@@ -95,7 +111,7 @@ public class RegisterActivity extends AppCompatActivity {
     private void setUpListeners() {
         btnRegister.setOnClickListener(v -> attemptRegister());
 
-        txtConfirm.setOnEditorActionListener((v, actionId, event) -> {
+        txtSecurityAnswer.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_DONE) {
                 attemptRegister();
                 return true;
@@ -111,19 +127,13 @@ public class RegisterActivity extends AppCompatActivity {
         clearErrorOnEdit(txtPhone, layoutPhone);
         clearErrorOnEdit(txtPassword, layoutPassword);
         clearErrorOnEdit(txtConfirm, layoutConfirm);
+        clearErrorOnEdit(txtSecurityAnswer, layoutSecurityAnswer);
 
-        spinBloodGroup.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                if (position > 0) {
-                    tvBloodGroupError.setVisibility(View.GONE);
-                }
-            }
+        // Hospital staff have no blood group, so hide that block for them.
+        rgRole.setOnCheckedChangeListener((group, checkedId) -> updateBloodGroupVisibility());
 
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-            }
-        });
+        spinBloodGroup.setOnItemSelectedListener(new ClearOnSelect(tvBloodGroupError));
+        spinSecurityQuestion.setOnItemSelectedListener(new ClearOnSelect(tvSecurityQuestionError));
 
         chkConsent.setOnCheckedChangeListener((button, checked) -> {
             if (checked) {
@@ -132,13 +142,29 @@ public class RegisterActivity extends AppCompatActivity {
         });
     }
 
+    private boolean isHospitalSelected() {
+        return rgRole.getCheckedRadioButtonId() == R.id.rbHospital;
+    }
+
+    private void updateBloodGroupVisibility() {
+        groupBloodGroup.setVisibility(isHospitalSelected() ? View.GONE : View.VISIBLE);
+        tvBloodGroupError.setVisibility(View.GONE);
+    }
+
     private void attemptRegister() {
         final String name = textOf(txtName).trim();
         final String email = textOf(txtEmail).trim().toLowerCase(Locale.ROOT);
         final String rawPhone = textOf(txtPhone);
         final String password = textOf(txtPassword);
         final String confirm = textOf(txtConfirm);
-        final int bloodPosition = spinBloodGroup.getSelectedItemPosition();
+        final String answer = textOf(txtSecurityAnswer);
+        final int questionIndex = spinSecurityQuestion.getSelectedItemPosition();
+        final String role = isHospitalSelected() ? User.ROLE_HOSPITAL : User.ROLE_DONOR;
+
+        int bloodPosition = spinBloodGroup.getSelectedItemPosition();
+        final String bloodGroup = isHospitalSelected() ? BloodGroups.NOT_APPLICABLE
+                : (bloodPosition >= 0 && bloodPosition < bloodGroupCodes.length
+                ? bloodGroupCodes[bloodPosition] : "");
 
         // Validate every field and show every problem at once, then focus the first one.
         View firstInvalid = null;
@@ -165,7 +191,7 @@ public class RegisterActivity extends AppCompatActivity {
             }
         }
 
-        if (bloodPosition <= 0) { // position 0 is the "Select blood group" prompt
+        if (Validators.bloodGroupError(role, bloodGroup) != 0) {
             tvBloodGroupError.setVisibility(View.VISIBLE);
             if (firstInvalid == null) {
                 firstInvalid = spinBloodGroup;
@@ -188,6 +214,21 @@ public class RegisterActivity extends AppCompatActivity {
             }
         }
 
+        if (Validators.securityQuestionError(questionIndex) != 0) {
+            tvSecurityQuestionError.setVisibility(View.VISIBLE);
+            if (firstInvalid == null) {
+                firstInvalid = spinSecurityQuestion;
+            }
+        }
+
+        int answerError = Validators.securityAnswerError(answer);
+        if (answerError != 0) {
+            layoutSecurityAnswer.setError(getString(answerError));
+            if (firstInvalid == null) {
+                firstInvalid = txtSecurityAnswer;
+            }
+        }
+
         if (!chkConsent.isChecked()) {
             tvConsentError.setVisibility(View.VISIBLE);
             if (firstInvalid == null) {
@@ -200,11 +241,6 @@ public class RegisterActivity extends AppCompatActivity {
             return;
         }
 
-        final String bloodGroup = (String) spinBloodGroup.getSelectedItem();
-        final String role = rgRole.getCheckedRadioButtonId() == R.id.rbHospital
-                ? User.ROLE_HOSPITAL : User.ROLE_DONOR;
-        final String phone = Validators.normalizePhone(rawPhone);
-
         setBusy(true);
         worker.execute(() -> {
             boolean taken = false;
@@ -213,7 +249,8 @@ public class RegisterActivity extends AppCompatActivity {
                 if (users.emailExists(email)) {
                     taken = true;
                 } else {
-                    failed = users.create(name, email, phone, bloodGroup, role, password) < 0;
+                    failed = users.create(name, email, rawPhone, bloodGroup, role, password,
+                            questionIndex, answer) < 0;
                 }
             } catch (RuntimeException e) {
                 Log.e(TAG, "Registration failed unexpectedly", e);
@@ -260,5 +297,25 @@ public class RegisterActivity extends AppCompatActivity {
 
     private static String textOf(TextInputEditText field) {
         return field.getText() == null ? "" : field.getText().toString();
+    }
+
+    /** Hides an error label as soon as a real (non-prompt) spinner item is chosen. */
+    private static class ClearOnSelect implements AdapterView.OnItemSelectedListener {
+        private final TextView errorView;
+
+        ClearOnSelect(TextView errorView) {
+            this.errorView = errorView;
+        }
+
+        @Override
+        public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+            if (position > 0) {
+                errorView.setVisibility(View.GONE);
+            }
+        }
+
+        @Override
+        public void onNothingSelected(AdapterView<?> parent) {
+        }
     }
 }

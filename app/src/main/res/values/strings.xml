@@ -2,19 +2,21 @@
 <resources>
     <string name="app_name">LifeLink Uganda</string>
     <string name="app_tagline">Real-time blood donor matching for Uganda</string>
-    <string name="content_logo">LifeLink Uganda logo, a red blood drop with a plus sign</string>
+    <string name="content_logo">LifeLink Uganda logo, a red blood drop with a white heart</string>
 
     <!-- Login -->
     <string name="login_heading">Log in</string>
     <string name="hint_email">Email address</string>
     <string name="hint_password">Password</string>
     <string name="remember_me">Keep me signed in</string>
+    <string name="link_forgot">Forgot password?</string>
     <string name="action_login">Log in</string>
     <string name="signing_in">Signing in...</string>
     <string name="link_register">New to LifeLink? Create an account</string>
     <string name="welcome_back">Welcome back, %1$s</string>
     <string name="login_failed">Incorrect email or password.</string>
     <string name="error_generic">Something went wrong. Please try again.</string>
+    <string name="error_locked">Too many failed attempts. Try again in %1$d min.</string>
 
     <!-- Register -->
     <string name="register_heading">Create your account</string>
@@ -23,14 +25,31 @@
     <string name="hint_phone">Phone number (07XXXXXXXX)</string>
     <string name="hint_confirm_password">Confirm password</string>
     <string name="label_blood_group">Blood group</string>
+    <string name="help_blood_group_unknown">Not sure? Choose the last option. A blood bank confirms your group when you donate.</string>
     <string name="label_role">I am registering as</string>
     <string name="role_donor">Blood donor</string>
     <string name="role_hospital">Hospital or blood bank staff</string>
+    <string name="label_security_question">Security question (used if you forget your password)</string>
+    <string name="hint_security_answer">Your answer</string>
+    <string name="help_security_answer">Choose an answer only you would know. It is stored securely and is not case sensitive.</string>
     <string name="consent_text">I agree that LifeLink may store my details to match me with blood requests, as described under the Data Protection and Privacy Act, 2019.</string>
     <string name="action_register">Create account</string>
     <string name="creating_account">Creating account...</string>
     <string name="link_login">Already registered? Log in</string>
     <string name="account_created">Account created. You can now log in.</string>
+
+    <!-- Forgot password -->
+    <string name="forgot_heading">Reset your password</string>
+    <string name="forgot_subheading_email">Enter the email address you registered with.</string>
+    <string name="forgot_subheading_question">Answer your security question, then choose a new password.</string>
+    <string name="action_continue">Continue</string>
+    <string name="label_your_question">Your security question</string>
+    <string name="hint_new_password">New password</string>
+    <string name="action_reset">Reset password</string>
+    <string name="resetting">Resetting...</string>
+    <string name="reset_done">Password changed. Log in with your new password.</string>
+    <string name="reset_failed">These details do not match. Check your email and your answer.</string>
+    <string name="link_back_login">Back to log in</string>
 
     <!-- Validation messages -->
     <string name="error_name_required">Enter your full name.</string>
@@ -40,33 +59,59 @@
     <string name="error_email_taken">This email is already registered. Try logging in.</string>
     <string name="error_phone_required">Enter your phone number.</string>
     <string name="error_phone_invalid">Enter a Ugandan mobile number, such as 0772123456.</string>
-    <string name="error_blood_group_required">Choose your blood group.</string>
+    <string name="error_blood_group_required">Choose your blood group, or the option for not knowing it.</string>
     <string name="error_password_required">Enter your password.</string>
     <string name="error_password_short">Use at least 8 characters.</string>
     <string name="error_password_long">Use at most 64 characters.</string>
     <string name="error_password_weak">Include at least one letter and one number.</string>
     <string name="error_confirm_required">Re-enter your password.</string>
     <string name="error_confirm_mismatch">The passwords do not match.</string>
+    <string name="error_security_question_required">Choose a security question.</string>
+    <string name="error_security_answer_required">Enter your answer.</string>
+    <string name="error_security_answer_short">Use at least 3 characters.</string>
+    <string name="error_security_answer_long">Use at most 60 characters.</string>
     <string name="error_consent_required">You must agree before creating an account.</string>
 
     <!-- Home -->
-    <string name="home_greeting">Hello, %1$s</string>
-    <string name="role_badge_donor">Donor</string>
-    <string name="role_badge_hospital">Hospital staff</string>
-    <string name="content_logout">Log out</string>
+    <string name="greeting_morning">Good morning</string>
+    <string name="greeting_afternoon">Good afternoon</string>
+    <string name="greeting_evening">Good evening</string>
     <string name="logout_done">You have been logged out.</string>
+
+    <string name="chip_blood_group">Blood group %1$s</string>
+    <string name="chip_blood_group_unknown">Blood group not confirmed</string>
+    <string name="chip_hospital">Hospital account</string>
+
+    <string name="ring_value_ready">Ready</string>
+    <string name="ring_label_open">open</string>
+    <plurals name="ring_days_to_go">
+        <item quantity="one">day to go</item>
+        <item quantity="other">days to go</item>
+    </plurals>
+    <plurals name="days_count">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+
     <string name="status_eligible_title">Eligible to donate</string>
-    <string name="status_eligible_detail">Your last donation was %1$d days ago. You can donate again.</string>
+    <string name="status_eligible_detail">Your last donation was %1$s ago. You can donate again.</string>
     <string name="status_wait_title">Not yet eligible</string>
-    <string name="status_wait_detail">You can donate again in %1$d days.</string>
+    <string name="status_wait_detail">You can donate again in %1$s.</string>
     <string name="status_first_title">Ready to donate</string>
     <string name="status_first_detail">No donations recorded yet.</string>
+    <string name="status_first_detail_unknown">Your blood group will be confirmed at your first donation.</string>
     <string name="status_hospital_title">Open blood requests</string>
     <string name="status_hospital_detail">%1$d requests are waiting for donors.</string>
+
+    <string name="urgent_header">Urgent requests near you</string>
+    <string name="urgent_hint_unknown">Your blood group is not confirmed yet, so LifeLink cannot match you to a request. Donate at a blood bank to confirm it, then update your profile.</string>
+    <string name="urgent_none">No requests match your blood group right now.</string>
+    <string name="urgent_subtitle">%1$s, %2$s</string>
+    <string name="distance_km">%1$.1f km away</string>
+
     <string name="list_header_donor">Your recent donations</string>
     <string name="list_header_hospital">Your recent requests</string>
     <string name="empty_records">No records yet.</string>
-    <string name="record_selected">Selected: %1$s</string>
     <string name="record_subtitle">%1$s, %2$s</string>
 
     <!-- Record status labels (colour is never the only signal) -->
@@ -79,4 +124,65 @@
         <item quantity="one">%d unit</item>
         <item quantity="other">%d units</item>
     </plurals>
+
+    <!-- Menu, dialogs and generic actions (Milestone 2) -->
+    <string name="content_menu">More options</string>
+    <string name="content_back">Back</string>
+    <string name="menu_add_donation">Add a donation</string>
+    <string name="menu_add_request">Add a blood request</string>
+    <string name="menu_about">About LifeLink</string>
+    <string name="action_add">Add</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_ok">OK</string>
+    <string name="action_logout">Log out</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_save">Save</string>
+    <string name="logout_confirm_title">Log out?</string>
+    <string name="logout_confirm_message">You will need to log in again to see your records.</string>
+    <string name="about_title">About LifeLink</string>
+    <string name="about_message">LifeLink Uganda connects blood donors with hospitals and blood banks, so urgent needs reach eligible donors quickly.\n\nThis is a coursework build. Your records are kept in the app only while it runs, and the urgent requests shown are samples.</string>
+    <string name="delete_confirm_title">Delete this record?</string>
+    <string name="delete_confirm_message">This cannot be undone.</string>
+
+    <!-- Add or edit a record -->
+    <string name="title_add_donation">Add a donation</string>
+    <string name="title_add_request">Add a blood request</string>
+    <string name="title_edit_donation">Edit donation</string>
+    <string name="title_edit_request">Edit blood request</string>
+    <string name="hint_facility">Hospital or blood bank</string>
+    <string name="hint_units">Units (1 to 20)</string>
+    <string name="hint_note">Note (optional)</string>
+    <string name="label_record_blood_group">Blood group</string>
+    <string name="label_record_status">Status</string>
+    <string name="label_date_donation">Date of donation</string>
+    <string name="label_date_request">Date of request</string>
+    <string name="action_choose_date">Choose date</string>
+    <string name="record_saved">Record saved.</string>
+    <string name="record_deleted">Record deleted.</string>
+    <string name="record_not_found">That record could not be found.</string>
+
+    <string name="error_facility_required">Enter the hospital or blood bank.</string>
+    <string name="error_facility_invalid">Use 2 to 80 letters or numbers.</string>
+    <string name="error_units_required">Enter the number of units.</string>
+    <string name="error_units_range">Enter a whole number from 1 to 20.</string>
+    <string name="error_note_long">Use at most 120 characters.</string>
+    <string name="error_record_blood_group_required">Choose a blood group.</string>
+    <string name="error_date_required">Choose a date.</string>
+    <string name="error_date_future">The date cannot be in the future.</string>
+
+    <!-- Request details -->
+    <string name="title_request_detail">Request details</string>
+    <string name="label_units_needed">Units needed</string>
+    <string name="label_distance">Distance</string>
+    <string name="label_reason">Reason</string>
+    <string name="action_call">Call hospital</string>
+    <string name="action_directions">Open in Maps</string>
+    <string name="action_share">Share request</string>
+    <string name="action_donated_here">I donated here</string>
+    <string name="share_text">Urgent blood request: %1$s needs %2$s of %3$s blood. Can you help? Shared from LifeLink Uganda.</string>
+    <string name="share_chooser_title">Share this request</string>
+    <string name="error_no_dialler">No phone app was found on this device.</string>
+    <string name="error_no_maps">No maps app was found on this device.</string>
+    <string name="error_no_share">No app was found to share this request.</string>
+    <string name="request_unavailable">This request could not be opened.</string>
 </resources>

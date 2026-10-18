@@ -19,6 +19,7 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import ug.lifelink.app.data.AuthResult;
 import ug.lifelink.app.data.UserRepository;
 import ug.lifelink.app.model.User;
 import ug.lifelink.app.util.SessionManager;
@@ -26,12 +27,14 @@ import ug.lifelink.app.util.SimpleTextWatcher;
 import ug.lifelink.app.util.Validators;
 
 /**
- * Login screen and the app's launcher activity.
+ * Login screen.
  *
- * Event handling: button click, keyboard "Done" action, link click and text changes.
+ * Event handling: button click, keyboard "Done" action, link clicks and text changes.
  * Lifecycle: every callback writes a line to Logcat under the tag LL_LIFECYCLE
- * (Milestone 1, Part E). Filter Logcat by that tag while you launch, press Home,
+ * (Milestone 1, Part E). Filter Logcat by that tag while you open the app, press Home,
  * return, rotate and press Back, then explain what you see in the README.
+ * Note that SplashActivity starts first and starts this screen, so a fresh launch shows
+ * this screen's onCreate only after the splash.
  */
 public class LoginActivity extends AppCompatActivity {
 
@@ -45,6 +48,7 @@ public class LoginActivity extends AppCompatActivity {
     private CheckBox chkRemember;
     private Button btnLogin;
     private TextView tvRegisterLink;
+    private TextView tvForgotLink;
 
     private UserRepository users;
     private SessionManager session;
@@ -58,16 +62,14 @@ public class LoginActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.i(LIFECYCLE_TAG, "Login onCreate, "
-                + (savedInstanceState == null ? "fresh launch (no saved state)"
+                + (savedInstanceState == null ? "fresh start (no saved state)"
                 : "re-created with saved state (rotation or process restore)"));
 
         setContentView(R.layout.activity_login);
         bindViews();
         users = new UserRepository(this);
         session = new SessionManager(this);
-
         setUpListeners();
-        skipLoginIfRemembered();
     }
 
     @Override
@@ -130,6 +132,7 @@ public class LoginActivity extends AppCompatActivity {
         chkRemember = findViewById(R.id.chkRemember);
         btnLogin = findViewById(R.id.btnLogin);
         tvRegisterLink = findViewById(R.id.tvRegisterLink);
+        tvForgotLink = findViewById(R.id.tvForgotLink);
     }
 
     private void setUpListeners() {
@@ -149,7 +152,17 @@ public class LoginActivity extends AppCompatActivity {
         tvRegisterLink.setOnClickListener(v ->
                 startActivity(new Intent(this, RegisterActivity.class)));
 
-        // Action 4: an error disappears as soon as the user starts correcting the field.
+        // Action 4: open Forgot password, carrying over any email already typed.
+        tvForgotLink.setOnClickListener(v -> {
+            Intent intent = new Intent(this, ForgotPasswordActivity.class);
+            String typed = textOf(txtEmail).trim();
+            if (!typed.isEmpty()) {
+                intent.putExtra(ForgotPasswordActivity.EXTRA_EMAIL, typed);
+            }
+            startActivity(intent);
+        });
+
+        // Action 5: an error disappears as soon as the user starts correcting the field.
         txtEmail.addTextChangedListener(new SimpleTextWatcher() {
             @Override
             public void afterTextChanged(Editable s) {
@@ -161,33 +174,6 @@ public class LoginActivity extends AppCompatActivity {
             public void afterTextChanged(Editable s) {
                 layoutPassword.setError(null);
             }
-        });
-    }
-
-    /** "Keep me signed in" from an earlier login: go straight to Home. */
-    private void skipLoginIfRemembered() {
-        if (!session.hasRememberedUser()) {
-            return;
-        }
-        final long rememberedId = session.getRememberedUserId();
-        worker.execute(() -> {
-            User user = null;
-            try {
-                user = users.findById(rememberedId);
-            } catch (RuntimeException e) {
-                Log.e(TAG, "Could not load the remembered user", e);
-            }
-            final User result = user;
-            runOnUiThread(() -> {
-                if (isFinishing() || isDestroyed()) {
-                    return;
-                }
-                if (result == null) {
-                    session.clear(); // the account no longer exists
-                } else {
-                    openHome(result);
-                }
-            });
         });
     }
 
@@ -222,38 +208,45 @@ public class LoginActivity extends AppCompatActivity {
         setBusy(true);
         final boolean remember = chkRemember.isChecked();
         worker.execute(() -> {
-            User user = null;
-            boolean failed = false;
+            AuthResult result = null;
             try {
-                user = users.authenticate(email, password);
+                result = users.authenticate(email, password);
             } catch (RuntimeException e) {
                 Log.e(TAG, "Login failed unexpectedly", e);
-                failed = true;
             }
-            final User result = user;
-            final boolean error = failed;
-            runOnUiThread(() -> onLoginResult(result, error, remember));
+            final AuthResult outcome = result; // null means an unexpected error
+            runOnUiThread(() -> onLoginResult(outcome, remember));
         });
     }
 
-    private void onLoginResult(User user, boolean error, boolean remember) {
+    private void onLoginResult(AuthResult result, boolean remember) {
         if (isFinishing() || isDestroyed()) {
             return;
         }
         setBusy(false);
 
-        if (error) {
+        if (result == null) {
             Toast.makeText(this, R.string.error_generic, Toast.LENGTH_LONG).show();
             return;
         }
-        if (user == null) {
-            // One message for both "unknown email" and "wrong password", so the screen
-            // does not reveal which emails are registered.
-            layoutPassword.setError(getString(R.string.login_failed));
-            txtPassword.requestFocus();
-            return;
+
+        switch (result.getStatus()) {
+            case LOCKED:
+                layoutPassword.setError(getString(R.string.error_locked,
+                        result.getMinutesLeft(System.currentTimeMillis())));
+                return;
+            case INVALID:
+                // One message for both "unknown email" and "wrong password", so the screen
+                // does not reveal which emails are registered.
+                layoutPassword.setError(getString(R.string.login_failed));
+                txtPassword.requestFocus();
+                return;
+            case SUCCESS:
+            default:
+                break;
         }
 
+        User user = result.getUser();
         if (remember) {
             session.remember(user.getId());
         } else {
@@ -266,10 +259,9 @@ public class LoginActivity extends AppCompatActivity {
 
     private void openHome(User user) {
         Intent intent = new Intent(this, HomeActivity.class);
+        // Only the id travels. Home loads the name, role and blood group from the database,
+        // so the database stays the single source of truth.
         intent.putExtra(HomeActivity.EXTRA_USER_ID, user.getId());
-        intent.putExtra(HomeActivity.EXTRA_USER_NAME, user.getFullName());
-        intent.putExtra(HomeActivity.EXTRA_USER_ROLE, user.getRole());
-        intent.putExtra(HomeActivity.EXTRA_BLOOD_GROUP, user.getBloodGroup());
         startActivity(intent);
         // finish() removes Login from the back stack, so Back on Home leaves the app
         // instead of returning to a login form for someone who is already signed in.

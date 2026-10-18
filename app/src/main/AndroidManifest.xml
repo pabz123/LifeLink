@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- M1 needs no permissions. Later milestones add only what they use:
-         ACCESS_COARSE_LOCATION (M4), POST_NOTIFICATIONS (M4), INTERNET (M4). -->
+    <!-- No permissions are needed yet. Later milestones add only what they use:
+         INTERNET and ACCESS_COARSE_LOCATION and POST_NOTIFICATIONS (M4). -->
 
     <application
         android:allowBackup="false"
@@ -12,10 +12,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.LifeLink">
 
+        <!-- The only screen other apps can start: the launcher entry. Every other screen is
+             exported="false", so no other app on the phone can open it directly. -->
         <activity
-            android:name=".LoginActivity"
+            android:name=".SplashActivity"
             android:exported="true"
-            android:windowSoftInputMode="adjustResize">
+            android:theme="@style/Theme.LifeLink.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -23,13 +25,32 @@
         </activity>
 
         <activity
+            android:name=".LoginActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".RegisterActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".ForgotPasswordActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".HomeActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".RequestDetailActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".RecordEditActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
 
     </application>
 
