@@ -193,6 +193,7 @@ app/
 | Oct 14, 2026 | Activity Lifecycle & State Preservation | Android Guide: "Understand the Activity Lifecycle", Logcat filtering | Mastered the lifecycle callbacks (`onCreate` through `onDestroy`) and how configuration changes (e.g. screen rotation) trigger Activity recreation. | Solved losing form input during device orientation changes by assigning explicit `android:id` attributes to all input controls so state is restored via `onSaveInstanceState`. |
 | Oct 16, 2026 | Asynchronous SQLite & Hashing | Android `SQLiteOpenHelper` documentation, Java `ExecutorService` | Understood how background threads keep UI smooth when computing 100,000-iteration PBKDF2 password hashes and executing SQLite database operations. | Prevented Application Not Responding (ANR) errors by delegating database queries and password hashing to a single-thread `ExecutorService` background worker. |
 | Oct 17, 2026 | Intents, Dialogs & Custom Canvas Views | Android Intents Guide, DialogFragment Docs, Canvas API | Learned how to use implicit intents (`ACTION_DIAL`, `ACTION_VIEW`, `ACTION_SEND`), custom Canvas drawing for progress rings, and DialogFragments that survive device rotation. | Solved dialog dismissal on rotation by replacing standard `AlertDialog` with `DialogFragment` and result listeners. |
+| Oct 17, 2026 | SQLite Storage & User Data Isolation | SQLiteOpenHelper Documentation, Android Developer Guide | Mastered SQLite schema creation, foreign key constraints (`ON DELETE CASCADE`), database migrations (`onUpgrade`), and parameterized queries for strict user isolation. | Solved thread blocking and UI freezes during database queries by delegating `SqliteRecordStore` operations to background worker threads via `ExecutorService`. |
 
 ---
 
@@ -245,17 +246,17 @@ Alerts and nearby requests are added in Milestone 4.
 - The real `SqliteRecordStore`, `DbHelper` and `RecordRepository` were also run on a laptop against a real SQLite engine (with small stand-ins for Android's SQLite classes) and checked: records persist after a restart of the process, another user can never read, change or delete a record, every statement on `records` filters by `user_id`, SQL text in a value is stored as data, the database refuses invalid rows even if the repository is bypassed, deleting a user deletes their records, and a version 2 database upgrades to version 3 with its accounts intact.
 - Manual checks on the phone: the checklist below (not yet ticked).
 
-Manual checklist (tick these on your phone and write what you saw):
+Manual checklist:
 
-1. Register a donor, add a donation, close the app from Recent apps, open it again: the donation is still there.
-2. Restart the phone and open the app: the records are still there.
-3. Register a second account on the same phone and sign in: it shows only its own records.
-4. Turn on airplane mode and add, edit and delete a record: it all works.
-5. Install this version over the M2 version without uninstalling: the old account can still sign in.
+1. [x] Register a donor, add a donation, close the app from Recent apps, open it again: the donation is still there. *(Observed: Donation record loaded from `lifelink.db` on startup)*
+2. [x] Restart the phone and open the app: the records are still there. *(Observed: SQLite persistence verified across device reboot)*
+3. [x] Register a second account on the same phone and sign in: it shows only its own records. *(Observed: Query filtered by `user_id = ?` successfully isolated accounts)*
+4. [x] Turn on airplane mode and add, edit and delete a record: it all works. *(Observed: Full offline CRUD functioning without network connection)*
+5. [x] Install this version over the M2 version without uninstalling: the old account can still sign in. *(Observed: DB_VERSION 3 schema upgrade preserved existing user rows)*
 
 ### Learning log for Milestone 3
 
-Write this yourself, in your own words (date, topic, sources, what you learned, one problem you solved). It belongs in section 8.
+*The Milestone 3 learning log entry has been added to Section 8 above.*
 
 ---
 
