@@ -29,7 +29,7 @@ public class RecordRepositoryTest {
 
     @Test
     public void add_thenList_returnsTheRecord() {
-        RecordRepository repo = new RecordRepository();
+        RecordRepository repo = new RecordRepository(new InMemoryRecordStore());
         addDonation(repo, ALICE, "Nakasero Blood Bank", NOW - DAY);
         List<BloodRecord> list = repo.listFor(ALICE);
         assertEquals(1, list.size());
@@ -39,7 +39,7 @@ public class RecordRepositoryTest {
 
     @Test
     public void list_isNewestFirst() {
-        RecordRepository repo = new RecordRepository();
+        RecordRepository repo = new RecordRepository(new InMemoryRecordStore());
         addDonation(repo, ALICE, "Old", NOW - 50 * DAY);
         addDonation(repo, ALICE, "New", NOW - 1 * DAY);
         addDonation(repo, ALICE, "Middle", NOW - 20 * DAY);
@@ -51,7 +51,7 @@ public class RecordRepositoryTest {
 
     @Test
     public void changingTheReturnedList_doesNotChangeTheStore() {
-        RecordRepository repo = new RecordRepository();
+        RecordRepository repo = new RecordRepository(new InMemoryRecordStore());
         addDonation(repo, ALICE, "Kitovu Hospital", NOW);
         repo.listFor(ALICE).clear();
         assertEquals(1, repo.listFor(ALICE).size());
@@ -59,14 +59,14 @@ public class RecordRepositoryTest {
 
     @Test
     public void usersNeverSeeEachOthersRecords() {
-        RecordRepository repo = new RecordRepository();
+        RecordRepository repo = new RecordRepository(new InMemoryRecordStore());
         addDonation(repo, ALICE, "Alice's donation", NOW);
         assertEquals(0, repo.listFor(BOB).size());
     }
 
     @Test
     public void get_withAnotherUsersId_findsNothing() {
-        RecordRepository repo = new RecordRepository();
+        RecordRepository repo = new RecordRepository(new InMemoryRecordStore());
         BloodRecord alices = addDonation(repo, ALICE, "Private", NOW);
         assertTrue(repo.get(ALICE, alices.getId()) != null);
         assertEquals(null, repo.get(BOB, alices.getId()));
@@ -74,7 +74,7 @@ public class RecordRepositoryTest {
 
     @Test
     public void delete_withAnotherUsersId_changesNothing() {
-        RecordRepository repo = new RecordRepository();
+        RecordRepository repo = new RecordRepository(new InMemoryRecordStore());
         BloodRecord alices = addDonation(repo, ALICE, "Private", NOW);
         assertFalse(repo.delete(BOB, alices.getId()));
         assertEquals(1, repo.listFor(ALICE).size());
@@ -82,7 +82,7 @@ public class RecordRepositoryTest {
 
     @Test
     public void update_withAnotherUsersId_changesNothing() {
-        RecordRepository repo = new RecordRepository();
+        RecordRepository repo = new RecordRepository(new InMemoryRecordStore());
         BloodRecord alices = addDonation(repo, ALICE, "Private", NOW);
         assertFalse(repo.update(BOB, alices.getId(), "A+", 2, "Hacked", BloodRecord.STATUS_COMPLETED,
                 "", NOW, NOW));
@@ -91,7 +91,7 @@ public class RecordRepositoryTest {
 
     @Test
     public void update_changesFields_butKeepsIdOwnerAndKind() {
-        RecordRepository repo = new RecordRepository();
+        RecordRepository repo = new RecordRepository(new InMemoryRecordStore());
         BloodRecord original = addDonation(repo, ALICE, "Before", NOW - DAY);
         assertTrue(repo.update(ALICE, original.getId(), "B+", 3, "  After  ",
                 BloodRecord.STATUS_COMPLETED, "  note ", NOW - 2 * DAY, NOW));
@@ -107,7 +107,7 @@ public class RecordRepositoryTest {
 
     @Test
     public void delete_removesTheRecord() {
-        RecordRepository repo = new RecordRepository();
+        RecordRepository repo = new RecordRepository(new InMemoryRecordStore());
         BloodRecord record = addDonation(repo, ALICE, "Gone soon", NOW);
         assertTrue(repo.delete(ALICE, record.getId()));
         assertEquals(0, repo.listFor(ALICE).size());
@@ -116,14 +116,14 @@ public class RecordRepositoryTest {
 
     @Test
     public void seedOnce_addsSamplesOnlyOnce_evenAfterEverythingIsDeleted() {
-        RecordRepository repo = new RecordRepository();
+        RecordRepository repo = new RecordRepository(new InMemoryRecordStore());
         List<BloodRecord> sample = new ArrayList<>();
         sample.add(new BloodRecord(1, ALICE, BloodRecord.KIND_DONATION, "O+", 1, "Sample",
                 BloodRecord.STATUS_COMPLETED, "", NOW - 30 * DAY));
         repo.seedOnce(ALICE, sample);
         repo.seedOnce(ALICE, sample);
         assertEquals(1, repo.listFor(ALICE).size());
-        repo.delete(ALICE, 1);
+        repo.delete(ALICE, repo.listFor(ALICE).get(0).getId());
         repo.seedOnce(ALICE, sample);
         assertEquals(0, repo.listFor(ALICE).size());
     }
@@ -132,41 +132,84 @@ public class RecordRepositoryTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void add_withZeroUnits_isRejected() {
-        new RecordRepository().add(ALICE, BloodRecord.KIND_DONATION, "O+", 0, "Somewhere",
+        new RecordRepository(new InMemoryRecordStore()).add(ALICE, BloodRecord.KIND_DONATION, "O+", 0, "Somewhere",
                 BloodRecord.STATUS_COMPLETED, "", NOW, NOW);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void add_withUnknownBloodGroup_isRejected() {
-        new RecordRepository().add(ALICE, BloodRecord.KIND_DONATION, "UNKNOWN", 1, "Somewhere",
+        new RecordRepository(new InMemoryRecordStore()).add(ALICE, BloodRecord.KIND_DONATION, "UNKNOWN", 1, "Somewhere",
                 BloodRecord.STATUS_COMPLETED, "", NOW, NOW);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void add_withEmptyFacility_isRejected() {
-        new RecordRepository().add(ALICE, BloodRecord.KIND_DONATION, "O+", 1, "  ",
+        new RecordRepository(new InMemoryRecordStore()).add(ALICE, BloodRecord.KIND_DONATION, "O+", 1, "  ",
                 BloodRecord.STATUS_COMPLETED, "", NOW, NOW);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void add_donationWithRequestStatus_isRejected() {
-        new RecordRepository().add(ALICE, BloodRecord.KIND_DONATION, "O+", 1, "Somewhere",
+        new RecordRepository(new InMemoryRecordStore()).add(ALICE, BloodRecord.KIND_DONATION, "O+", 1, "Somewhere",
                 BloodRecord.STATUS_URGENT, "", NOW, NOW);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void add_dateInTheFuture_isRejected() {
-        new RecordRepository().add(ALICE, BloodRecord.KIND_DONATION, "O+", 1, "Somewhere",
+        new RecordRepository(new InMemoryRecordStore()).add(ALICE, BloodRecord.KIND_DONATION, "O+", 1, "Somewhere",
                 BloodRecord.STATUS_COMPLETED, "", NOW + 30 * DAY, NOW);
     }
 
     @Test
     public void add_requestWithEachRequestStatus_isAccepted() {
-        RecordRepository repo = new RecordRepository();
+        RecordRepository repo = new RecordRepository(new InMemoryRecordStore());
         for (String status : new String[]{BloodRecord.STATUS_OPEN, BloodRecord.STATUS_URGENT,
                 BloodRecord.STATUS_FULFILLED}) {
             repo.add(BOB, BloodRecord.KIND_REQUEST, "B+", 2, "Mbale Hospital", status, "", NOW, NOW);
         }
         assertEquals(3, repo.listFor(BOB).size());
+    }
+
+    @Test
+    public void seedOnce_recordsBelongToTheSeededUser_whateverTheSampleSays() {
+        RecordRepository repo = new RecordRepository(new InMemoryRecordStore());
+        List<BloodRecord> sample = new ArrayList<>();
+        sample.add(new BloodRecord(1, BOB, BloodRecord.KIND_DONATION, "O+", 1, "Sample",
+                BloodRecord.STATUS_COMPLETED, "", NOW - 30 * DAY));
+        repo.seedOnce(ALICE, sample);
+        assertEquals(ALICE, repo.listFor(ALICE).get(0).getUserId());
+        assertEquals(0, repo.listFor(BOB).size());
+    }
+
+    @Test
+    public void add_trimsFacilityAndNote() {
+        RecordRepository repo = new RecordRepository(new InMemoryRecordStore());
+        BloodRecord record = repo.add(ALICE, BloodRecord.KIND_DONATION, "O+", 1, "  Kitovu Hospital  ",
+                BloodRecord.STATUS_COMPLETED, "  thank you  ", NOW, NOW);
+        assertEquals("Kitovu Hospital", record.getFacility());
+        assertEquals("thank you", record.getNote());
+    }
+
+    @Test
+    public void update_withInvalidUnits_isRejectedAndKeepsTheStoredRecord() {
+        RecordRepository repo = new RecordRepository(new InMemoryRecordStore());
+        BloodRecord record = addDonation(repo, ALICE, "Original", NOW - DAY);
+        try {
+            repo.update(ALICE, record.getId(), "O+", 99, "Changed", BloodRecord.STATUS_COMPLETED,
+                    "", NOW - DAY, NOW);
+            org.junit.Assert.fail("expected IllegalArgumentException");
+        } catch (IllegalArgumentException expected) {
+            // the stored record must be untouched
+        }
+        assertEquals("Original", repo.get(ALICE, record.getId()).getFacility());
+        assertEquals(1, repo.get(ALICE, record.getId()).getUnits());
+    }
+
+    @Test
+    public void recordIds_areUniqueAcrossUsers() {
+        RecordRepository repo = new RecordRepository(new InMemoryRecordStore());
+        BloodRecord a = addDonation(repo, ALICE, "Facility A", NOW);
+        BloodRecord b = addDonation(repo, BOB, "Facility B", NOW);
+        org.junit.Assert.assertNotEquals(a.getId(), b.getId());
     }
 }

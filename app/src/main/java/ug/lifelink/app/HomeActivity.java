@@ -25,6 +25,7 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import ug.lifelink.app.data.AppData;
 import ug.lifelink.app.data.RecordRepository;
 import ug.lifelink.app.data.SampleData;
 import ug.lifelink.app.data.UserRepository;
@@ -85,7 +86,7 @@ public class HomeActivity extends AppCompatActivity {
 
     private RecordAdapter adapter;
     private UserRepository users;
-    private final RecordRepository recordStore = RecordRepository.getInstance();
+    private RecordRepository recordStore;
     private User currentUser;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
 
@@ -96,7 +97,7 @@ public class HomeActivity extends AppCompatActivity {
     private final ActivityResultLauncher<Intent> screenLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(), result -> {
                 if (currentUser != null) {
-                    renderRecords(); // the list may have changed, whatever the result code
+                    refreshRecords(); // the list may have changed, whatever the result code
                 }
                 Intent data = result.getData();
                 if (result.getResultCode() == RESULT_OK && data != null) {
@@ -142,6 +143,7 @@ public class HomeActivity extends AppCompatActivity {
                 (requestKey, result) -> logout());
 
         users = new UserRepository(this);
+        recordStore = AppData.records(this);
         loadUser(userId);
     }
 
@@ -182,21 +184,41 @@ public class HomeActivity extends AppCompatActivity {
 
     // ------------------------------------------------------------------ loading
 
+    /**
+     * Loads the user and their records off the main thread (the database is on disk). New
+     * accounts are given the sample records here, once, before the list is read.
+     */
     private void loadUser(final long userId) {
         worker.execute(() -> {
             User user = null;
+            List<BloodRecord> records = null;
+            boolean failed = false;
             try {
                 user = users.findById(userId);
+                if (user != null) {
+                    recordStore.seedOnce(user.getId(), SampleData.forRole(user.getRole(),
+                            user.getBloodGroup(), user.getId(), System.currentTimeMillis()));
+                    records = recordStore.listFor(user.getId());
+                }
             } catch (RuntimeException e) {
-                Log.e(TAG, "Could not load the user", e);
+                Log.e(TAG, "Could not load the user or their records", e);
+                failed = true;
             }
-            final User result = user;
-            runOnUiThread(() -> onUserLoaded(result));
+            final User loadedUser = user;
+            final List<BloodRecord> loadedRecords = records;
+            final boolean loadFailed = failed;
+            runOnUiThread(() -> onUserLoaded(loadedUser, loadedRecords, loadFailed));
         });
     }
 
-    private void onUserLoaded(User user) {
+    private void onUserLoaded(User user, List<BloodRecord> records, boolean loadFailed) {
         if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        if (loadFailed) {
+            // A database problem is not the same as a missing account: do not sign the user out.
+            Toast.makeText(this, R.string.error_generic, Toast.LENGTH_LONG).show();
+            finish();
             return;
         }
         if (user == null) {
@@ -211,10 +233,7 @@ public class HomeActivity extends AppCompatActivity {
         tvAvatar.setText(initialsOf(user.getFullName()));
         btnAddRecord.setText(user.isHospital() ? R.string.menu_add_request : R.string.menu_add_donation);
 
-        // New accounts start with sample records, once. After that the list is the user's own.
-        recordStore.seedOnce(user.getId(),
-                SampleData.forRole(user.getRole(), user.getBloodGroup(), user.getId(), System.currentTimeMillis()));
-        renderRecords();
+        showRecords(records);
 
         if (user.isHospital()) {
             tvListHeader.setText(R.string.list_header_hospital);
@@ -227,10 +246,28 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
-    /** Reloads this user's records from the repository and refreshes the list and the hero card. */
-    private void renderRecords() {
+    /** Reloads this user's records from the database (off the main thread) and shows them. */
+    private void refreshRecords() {
+        final long userId = currentUser.getId();
+        worker.execute(() -> {
+            List<BloodRecord> records = null;
+            try {
+                records = recordStore.listFor(userId);
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Could not reload the records", e);
+            }
+            final List<BloodRecord> loaded = records;
+            runOnUiThread(() -> {
+                if (loaded != null && !isFinishing() && !isDestroyed()) {
+                    showRecords(loaded);
+                }
+            });
+        });
+    }
+
+    /** Puts the given records in the list and refreshes the hero card. Main thread only. */
+    private void showRecords(List<BloodRecord> records) {
         final long now = System.currentTimeMillis();
-        List<BloodRecord> records = recordStore.listFor(currentUser.getId());
         adapter.clear();
         adapter.addAll(records);
         tvEmptyRecords.setVisibility(records.isEmpty() ? View.VISIBLE : View.GONE);

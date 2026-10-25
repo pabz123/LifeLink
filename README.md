@@ -63,10 +63,14 @@ app/
       HomeActivity.java              Greeting, hero status card, urgent requests, record list, menu
       RequestDetailActivity.java     One urgent request: call, maps, share, "I donated here"
       RecordEditActivity.java        Add, edit or delete one record, with full validation
-      data/DbHelper.java             Creates the SQLite tables (users, records) with CHECK constraints
+      data/DbHelper.java             Creates and upgrades the SQLite tables (users, records), CHECK constraints
       data/UserRepository.java       All user queries: create, login with lockout, reset, find
       data/AuthResult.java           Outcome of a login attempt (success, invalid, locked)
-      data/RecordRepository.java     In-memory records the user can add, edit and delete (SQLite in M3)
+      data/RecordRepository.java     Rules for records (validation); hands storing to a RecordStore
+      data/RecordStore.java          What a record store must do; every method takes the user id
+      data/SqliteRecordStore.java    The SQLite store: every query has user_id = ? (Milestone 3)
+      data/InMemoryRecordStore.java  A list-based store used only by the unit tests
+      data/AppData.java              Builds the one shared RecordRepository for the whole app
       data/SampleData.java           Starter records and sample urgent requests (API replaces them in M4)
       model/User.java                A registered user
       model/BloodRecord.java         A donation (donor) or a blood request (hospital)
@@ -202,15 +206,56 @@ app/
 | Bad data written by a bug or a skipped check | Repository re-validates; database CHECK, UNIQUE and FOREIGN KEY constraints | `data/UserRepository.java`, `data/DbHelper.java` |
 | Guessing passwords or security answers | After 5 failed attempts the account is locked for 5 minutes. Login and reset share one counter | `UserRepository.authenticate`, `resetPassword` |
 | Screens reveal which emails are registered | One generic login message; reset screen shows a stable fake question for unknown email | `LoginActivity`, `ForgotPasswordActivity` |
-| One user reads or changes another user's records | Every `RecordRepository` method takes the signed-in user's id and only looks inside that user's own list | `data/RecordRepository.java` |
+| One user reads or changes another user's records | Every `RecordStore` method takes the signed-in user's id. In SQLite every query on `records` has `user_id = ?`, and a single record is found with `id = ? AND user_id = ?`, so another user's record id matches no row | `data/SqliteRecordStore.java`, `data/RecordStore.java` |
+| Record owner changed after creation | The update statement never sets `user_id` or `kind` | `SqliteRecordStore.update` |
+| Orphaned records after an account is removed | `ON DELETE CASCADE` foreign key (foreign keys are switched on for every connection) | `data/DbHelper.java` |
+| Someone with a rooted phone or a copy of the database file reads the records | Not controlled by the app. The database is not encrypted; it relies on Android's per-app private storage and on device encryption. Encrypting it (SQLCipher) is listed as future work | none |
 | Another app opens an internal screen | Only `SplashActivity` is exported; Login, Register, Reset and Home are `exported="false"` | `AndroidManifest.xml` |
 | Data copied out through Android backup | `android:allowBackup="false"` | `AndroidManifest.xml` |
 
 ---
 
-## 10. Offline behaviour (M3), testing (M4), release (M4)
+## 10. Milestone 3: storage, authorisation and offline behaviour
 
-To be completed in later milestones.
+### How each requirement is met
+
+| Requirement | How it is met | Where |
+|---|---|---|
+| Data stored in SQLite | Users and records live in `lifelink.db`. Records are no longer in memory, so they survive closing the app, a restart and Android ending the process | `data/SqliteRecordStore.java`, `data/DbHelper.java` |
+| Each user sees only their own records | Every query on `records` has `user_id = ?` in its WHERE clause. A record id that belongs to someone else is "not found" | `SqliteRecordStore` |
+| Schema changes without losing data | `DB_VERSION` is 3. The step from 2 to 3 uses `ALTER TABLE ... ADD COLUMN`, so existing accounts keep their data. Version 1 only held test accounts and is rebuilt | `DbHelper.onUpgrade` |
+| Database work off the main thread | Home and the record form read and write through a single-thread `ExecutorService`, then return to the main thread with `runOnUiThread`. Buttons are switched off while a save is running so a double tap cannot save twice | `HomeActivity`, `RecordEditActivity` |
+| Screens did not change | `RecordRepository` kept its method names. Only where the data is stored changed | `data/RecordRepository.java` |
+
+### Offline behaviour
+
+LifeLink works without any connection, because every record and account is stored on the phone.
+
+| Situation | What the app does |
+|---|---|
+| No signal, app opened | Login, Home, adding, editing and deleting records all work, since they use only the local database |
+| App closed or the phone restarted | The records are still there when it is opened again |
+| Urgent requests (sample data until M4) | Shown from the app itself. In M4 they are fetched over the network and the last result is kept in SQLite, so the list still shows with a "last updated" time when offline |
+
+Alerts and nearby requests are added in Milestone 4.
+
+### How I tested it
+
+- Unit tests (`RecordRepositoryTest`) cover the rules and ownership using the in-memory store.
+- The real `SqliteRecordStore`, `DbHelper` and `RecordRepository` were also run on a laptop against a real SQLite engine (with small stand-ins for Android's SQLite classes) and checked: records persist after a restart of the process, another user can never read, change or delete a record, every statement on `records` filters by `user_id`, SQL text in a value is stored as data, the database refuses invalid rows even if the repository is bypassed, deleting a user deletes their records, and a version 2 database upgrades to version 3 with its accounts intact.
+- Manual checks on the phone: the checklist below (not yet ticked).
+
+Manual checklist (tick these on your phone and write what you saw):
+
+1. Register a donor, add a donation, close the app from Recent apps, open it again: the donation is still there.
+2. Restart the phone and open the app: the records are still there.
+3. Register a second account on the same phone and sign in: it shows only its own records.
+4. Turn on airplane mode and add, edit and delete a record: it all works.
+5. Install this version over the M2 version without uninstalling: the old account can still sign in.
+
+### Learning log for Milestone 3
+
+Write this yourself, in your own words (date, topic, sources, what you learned, one problem you solved). It belongs in section 8.
 
 ---
 
@@ -219,11 +264,13 @@ To be completed in later milestones.
 | Tool | What it helped build |
 |---|---|
 | Claude / IDE AI Assistant | Assisted in drafting M1 & M2 project files: Java source classes, XML layouts, resource bundles, custom Canvas views, unit tests, and filling out the README documentation. All code was reviewed, built, tested, and validated locally. |
+| Claude (M3) | Drafted `RecordStore`, `SqliteRecordStore`, `InMemoryRecordStore`, `AppData`, the database version 3 upgrade, the move of record reads and writes to a background thread, and the extra unit tests. I can explain and change these. |
 
 ---
 
 ## 12. Known limitations
 
 - New accounts start with a few sample records, which the user can edit or delete.
-- Records are kept in memory (M2), so they are lost when Android ends the app process. SQLite in M3 fixes this.
+- The database is not encrypted. It is in the app's private storage, but a rooted phone could read it.
+- If the phone is rotated at the exact moment a record is being saved, the save still completes but the screen is rebuilt, so the confirmation message may not show.
 - Data is stored on the phone only, so records are not shared between devices until the REST API step in M4.

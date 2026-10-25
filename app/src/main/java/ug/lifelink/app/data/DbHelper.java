@@ -18,7 +18,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 public class DbHelper extends SQLiteOpenHelper {
 
     public static final String DB_NAME = "lifelink.db";
-    public static final int DB_VERSION = 2;
+    public static final int DB_VERSION = 3;
 
     // users
     public static final String T_USERS = "users";
@@ -36,6 +36,12 @@ public class DbHelper extends SQLiteOpenHelper {
     public static final String C_FAILED_ATTEMPTS = "failed_attempts";
     public static final String C_LOCKED_UNTIL = "locked_until";
     public static final String C_CREATED_AT = "created_at";
+    public static final String C_RECORDS_SEEDED = "records_seeded";
+
+    // Added in version 3. The same text is used by onCreate and by the upgrade step, so a new
+    // install and an upgraded install end up with an identical column.
+    private static final String RECORDS_SEEDED_DDL = C_RECORDS_SEEDED
+            + " INTEGER NOT NULL DEFAULT 0 CHECK (" + C_RECORDS_SEEDED + " IN (0,1))";
 
     // records
     public static final String T_RECORDS = "records";
@@ -83,7 +89,8 @@ public class DbHelper extends SQLiteOpenHelper {
                 + C_ANSWER_SALT + " TEXT NOT NULL, "
                 + C_FAILED_ATTEMPTS + " INTEGER NOT NULL DEFAULT 0, "
                 + C_LOCKED_UNTIL + " INTEGER NOT NULL DEFAULT 0, "
-                + C_CREATED_AT + " INTEGER NOT NULL)");
+                + C_CREATED_AT + " INTEGER NOT NULL, "
+                + RECORDS_SEEDED_DDL + ")");
 
         db.execSQL("CREATE TABLE " + T_RECORDS + " ("
                 + C_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -105,11 +112,19 @@ public class DbHelper extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        // Versions 1 and 2 only ever held test accounts made during development, so the
-        // tables are simply rebuilt. Once real data exists (after Milestone 3), a schema
-        // change must instead use ALTER TABLE steps so nobody loses their records.
-        db.execSQL("DROP TABLE IF EXISTS " + T_RECORDS);
-        db.execSQL("DROP TABLE IF EXISTS " + T_USERS);
-        onCreate(db);
+        if (oldVersion < 2) {
+            // Version 1 only ever held development test accounts, so it is rebuilt from scratch.
+            // onCreate builds the newest schema, so no further steps are needed.
+            db.execSQL("DROP TABLE IF EXISTS " + T_RECORDS);
+            db.execSQL("DROP TABLE IF EXISTS " + T_USERS);
+            onCreate(db);
+            return;
+        }
+        // From version 2 on, real accounts may exist, so every change keeps their data.
+        if (oldVersion < 3) {
+            // Version 3 (Milestone 3): remember that a user has been given the sample records,
+            // now that records are stored and no longer start empty after every launch.
+            db.execSQL("ALTER TABLE " + T_USERS + " ADD COLUMN " + RECORDS_SEEDED_DDL);
+        }
     }
 }
