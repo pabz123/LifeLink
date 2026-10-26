@@ -17,8 +17,11 @@ import android.database.sqlite.SQLiteOpenHelper;
  */
 public class DbHelper extends SQLiteOpenHelper {
 
+    public static final String T_ALERT_LOG = "alert_log";
+    public static final String C_ALERTED_AT = "alerted_at";
+
     public static final String DB_NAME = "lifelink.db";
-    public static final int DB_VERSION = 4;
+    public static final int DB_VERSION = 5;
 
     // users
     public static final String T_USERS = "users";
@@ -123,6 +126,7 @@ public class DbHelper extends SQLiteOpenHelper {
                 + "(" + C_USER_ID + ", " + C_CREATED_AT + " DESC)");
 
         createRequestCache(db);
+        createAlertLog(db);
     }
 
     /** Used by onCreate and by the version 4 upgrade step, so both give the same table. */
@@ -145,6 +149,15 @@ public class DbHelper extends SQLiteOpenHelper {
                 + C_FETCHED_AT + " INTEGER NOT NULL)");
     }
 
+    /** One row per (user, request) already notified, so the same request never alerts twice. */
+    private void createAlertLog(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS " + T_ALERT_LOG + " ("
+                + C_USER_ID + " INTEGER NOT NULL REFERENCES " + T_USERS + "(" + C_ID + ") ON DELETE CASCADE, "
+                + C_REMOTE_ID + " TEXT NOT NULL, "
+                + C_ALERTED_AT + " INTEGER NOT NULL, "
+                + "PRIMARY KEY (" + C_USER_ID + ", " + C_REMOTE_ID + "))");
+    }
+
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         if (oldVersion < 2) {
@@ -164,6 +177,10 @@ public class DbHelper extends SQLiteOpenHelper {
         if (oldVersion < 4) {
             // Version 4 (Milestone 4): the offline copy of the shared request list.
             createRequestCache(db);
+        }
+        if (oldVersion < 5) {
+            // Version 5 (Milestone 4): the list of requests already notified.
+            createAlertLog(db);
         }
     }
 }

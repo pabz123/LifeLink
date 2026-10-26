@@ -22,6 +22,9 @@ import ug.lifelink.app.model.UrgentRequest;
  */
 public final class RequestCache {
 
+    /** Ids of requests created by Demo mode start with this text. */
+    public static final String DEMO_PREFIX = "demo-";
+
     private final DbHelper helper;
 
     public RequestCache(Context context) {
@@ -33,7 +36,9 @@ public final class RequestCache {
         SQLiteDatabase db = helper.getWritableDatabase();
         db.beginTransaction();
         try {
-            db.delete(DbHelper.T_REQUEST_CACHE, null, null);
+            // Demo requests (ids starting "demo-") are local test data, not part of the server list.
+            db.delete(DbHelper.T_REQUEST_CACHE, DbHelper.C_REMOTE_ID + " NOT LIKE ?",
+                    new String[]{DEMO_PREFIX + "%"});
             for (UrgentRequest request : requests) {
                 db.insertOrThrow(DbHelper.T_REQUEST_CACHE, null, toValues(request, fetchedAt));
             }
@@ -43,10 +48,16 @@ public final class RequestCache {
         }
     }
 
-    /** Adds or replaces one request. Used by Demo mode to add a test request. */
+    /** Adds or replaces one request. Demo mode passes fetchedAt = 0 so a test request never makes the list look freshly downloaded. */
     public void upsert(UrgentRequest request, long fetchedAt) {
         helper.getWritableDatabase().insertWithOnConflict(DbHelper.T_REQUEST_CACHE, null,
                 toValues(request, fetchedAt), SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    /** Removes every Demo mode request. */
+    public void clearDemo() {
+        helper.getWritableDatabase().delete(DbHelper.T_REQUEST_CACHE,
+                DbHelper.C_REMOTE_ID + " LIKE ?", new String[]{DEMO_PREFIX + "%"});
     }
 
     /** Newest first. Distances are not stored; they depend on where the donor is. */

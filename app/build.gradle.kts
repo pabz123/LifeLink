@@ -37,6 +37,7 @@ dependencies {
     implementation(libs.constraintlayout)
     implementation(libs.material)
     implementation(libs.play.services.location)
+    implementation(libs.work.runtime)
     testImplementation(libs.junit)
     testImplementation(libs.org.json)
     androidTestImplementation(libs.espresso.core)

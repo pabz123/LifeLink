@@ -6,6 +6,8 @@
          Fine location and background location are deliberately not requested. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- POST_NOTIFICATIONS: urgent request alerts (asked once, Android 13 and later). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-feature android:name="android.hardware.location" android:required="false" />
 
     <application
@@ -49,6 +51,10 @@
 
         <activity
             android:name=".RequestDetailActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".DemoActivity"
             android:exported="false" />
 
         <activity

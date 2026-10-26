@@ -29,6 +29,9 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import ug.lifelink.app.alert.AlertNotifier;
+import ug.lifelink.app.alert.AlertScheduler;
+import ug.lifelink.app.alert.AlertSettings;
 import ug.lifelink.app.data.AppData;
 import ug.lifelink.app.data.RecordRepository;
 import ug.lifelink.app.data.RequestCache;
@@ -132,8 +135,13 @@ public class HomeActivity extends AppCompatActivity {
             new ActivityResultContracts.RequestPermission(), granted -> {
                 if (currentUser != null && !currentUser.isHospital()) {
                     bindUrgentRequests(currentUser);
+                    askNotificationPermissionOnce();
                 }
             });
+
+    /** Result of the notification permission dialog. A "no" simply means no alerts. */
+    private final ActivityResultLauncher<String> notificationPermission = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(), granted -> { });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -284,6 +292,20 @@ public class HomeActivity extends AppCompatActivity {
         } else {
             tvListHeader.setText(R.string.list_header_donor);
             bindUrgentRequests(user);
+            AlertScheduler.schedule(this); // background check about every 15 minutes
+        }
+    }
+
+    /**
+     * Asks to show notifications, once, on Android 13 and later. Called after the location
+     * question so two permission dialogs never appear together.
+     */
+    private void askNotificationPermissionOnce() {
+        AlertSettings settings = new AlertSettings(this);
+        if (android.os.Build.VERSION.SDK_INT >= 33 && !AlertNotifier.canNotify(this)
+                && !settings.wasNotificationPermissionAsked()) {
+            settings.markNotificationPermissionAsked();
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS);
         }
     }
 
@@ -329,10 +351,15 @@ public class HomeActivity extends AppCompatActivity {
         popup.getMenuInflater().inflate(R.menu.menu_home, popup.getMenu());
         popup.getMenu().findItem(R.id.action_add).setTitle(
                 currentUser.isHospital() ? R.string.menu_add_request : R.string.menu_add_donation);
+        popup.getMenu().findItem(R.id.action_demo).setVisible(!currentUser.isHospital());
         popup.setOnMenuItemClickListener(item -> {
             int id = item.getItemId();
             if (id == R.id.action_add) {
                 openRecordForm(-1L);
+                return true;
+            } else if (id == R.id.action_demo) {
+                screenLauncher.launch(new Intent(this, DemoActivity.class)
+                        .putExtra("ug.lifelink.app.extra.USER_ID", currentUser.getId()));
                 return true;
             } else if (id == R.id.action_about) {
                 ConfirmDialogFragment.newInfo(R.string.about_title, R.string.about_message)
@@ -508,6 +535,7 @@ public class HomeActivity extends AppCompatActivity {
         }
         if (DeviceLocation.hasPermission(this)) {
             hideLocationPrompt();
+            askNotificationPermissionOnce();
             DeviceLocation.get(this, location -> {
                 if (location == null || isFinishing() || isDestroyed()) {
                     return;
@@ -633,6 +661,7 @@ public class HomeActivity extends AppCompatActivity {
 
     private void logout() {
         new SessionManager(this).clear();
+        AlertScheduler.cancel(this);
         Toast.makeText(this, R.string.logout_done, Toast.LENGTH_SHORT).show();
         goToLogin();
     }

@@ -80,6 +80,14 @@ app/
       util/Geo.java                  Haversine distance between two coordinates
       util/RequestMatcher.java       Blood-group match, expiry, radius by urgency, sort order
       model/Urgency.java             Critical, Urgent, Routine and their search radii
+      alert/AlertRules.java          Which matched requests deserve a notification
+      alert/RequestChecker.java      One alert check: refresh, match, notify, remember
+      alert/RequestCheckWorker.java  The WorkManager job that runs the check about every 15 minutes
+      alert/AlertScheduler.java      Starts and stops that job
+      alert/AlertNotifier.java       The notification channel and the notification itself
+      alert/AlertSettings.java       Remembers that the notification permission was asked
+      data/AlertLog.java             Requests already notified, per user (database version 5)
+      DemoActivity.java              Demo mode: pretend place, test request, run the check
       model/User.java                A registered user
       model/BloodRecord.java         A donation (donor) or a blood request (hospital)
       model/UrgentRequest.java       A live request from a hospital, shown to matching donors
@@ -275,13 +283,28 @@ Manual checklist:
 - **Offline.** After every successful download the whole list is saved in the `request_cache` table (database version 4, added by a non-destructive upgrade). Without a connection the saved copy is shown with the time it was saved. The table holds public hospital data only, nothing about a user.
 - **Matching on the phone.** Expired requests and incompatible blood groups are removed. With a position known, the radius depends on urgency: Critical 15 km, Urgent 30 km, Routine 50 km, multiplied by 1.5 for Rh-negative requests. Order: most urgent first, then nearest, then newest.
 - **Location.** Only `ACCESS_COARSE_LOCATION` is requested. The distance is calculated on the phone and the position is never sent anywhere. If the permission is denied, every compatible request is still shown, without distances. After a permanent denial the button opens the app's settings page.
-- **Not yet done.** Alerts and notifications while the app is closed, and Demo mode, are Drop B2.
+- **Alerts:** see section 10c.
 
 ### How I tested it (Drop B1)
 
 - 88 unit tests (25 new: `GeoTest`, `UrgencyTest`, `RequestMatcherTest`, `RequestFeedParserTest`).
 - Database checks against real SQLite: cache replace, round trip of coordinates and NULL positions, survival after a restart, and the version 3 to 4 upgrade keeping existing accounts.
 - Not yet run on a phone at the time of writing; the Gradle build and the screens need to be checked on a device.
+
+## 10c. Milestone 4 (Drop B2): alerts and Demo mode
+
+- **Background check.** WorkManager runs `RequestCheckWorker` about every 15 minutes (the minimum Android allows) while the phone has a network connection, even with the app closed. It works for the user who ticked "Keep me signed in"; with nobody remembered it does nothing. Logging out cancels the job.
+- **Who is notified.** A request is notified only when its hospital is verified, it is Critical or Urgent, the distance is known and inside the radius, the blood group is compatible, and this donor has not been notified about it before (`alert_log`, database version 5, filtered by user id). Routine requests appear in the list without a sound.
+- **Privacy.** The background job uses the last saved approximate position. No background location permission is requested, so the position can be old if the app has not been opened recently. The notification text holds only the hospital, blood group and distance.
+- **Permission.** On Android 13 and later the app asks once to show notifications, after the location question. If the answer is no, alerts are skipped and the list still works.
+- **Offline.** A phone with no connection cannot learn about new requests. The job waits for a connection, then runs. Requests already saved on the phone are still shown without a connection.
+- **Demo mode** (three-dot menu, donors only): choose Mbarara, Kabale, Kampala or Mbale as a pretend position, post a test request about 3 km away for your own blood group, and run the alert check to see the notification. Test requests have ids starting `demo-`, stay on the phone, and survive a real download. "Clear demo" restores the real location and the alert history so the demonstration can be repeated.
+
+### How I tested it (Drop B2)
+
+- 94 unit tests (6 new for `AlertRules`).
+- Database checks against real SQLite for the alert log (per-user separation, cascade delete, foreign key), demo rows surviving a real download, and the version 4 to 5 upgrade.
+- Not yet run on a phone. The notification, the permission dialog and the 15-minute job need to be checked on a device (Demo mode's "Run alert check now" avoids waiting for the job).
 
 ---
 
@@ -292,6 +315,7 @@ Manual checklist:
 | Claude / IDE AI Assistant | Assisted in drafting M1 & M2 project files: Java source classes, XML layouts, resource bundles, custom Canvas views, unit tests, and filling out the README documentation. All code was reviewed, built, tested, and validated locally. |
 | Claude (M3) | Drafted `RecordStore`, `SqliteRecordStore`, `InMemoryRecordStore`, `AppData`, the database version 3 upgrade, the move of record reads and writes to a background thread, and the extra unit tests. I can explain and change these. |
 | Claude (M4, B1) | Drafted the request feed client and parser, `RequestCache` and the version 4 upgrade, `Geo`, `Urgency`, `RequestMatcher`, the location classes, the Home wiring (permission prompt, offline status line) and their tests. I can explain and change these. |
+| Claude (M4, B2) | Drafted `AlertRules`, `AlertLog`, `RequestChecker`, the WorkManager job and scheduler, `AlertNotifier`, the version 5 upgrade, `DemoActivity` and their tests. I can explain and change these. |
 
 ---
 
@@ -302,4 +326,5 @@ Manual checklist:
 - If the phone is rotated at the exact moment a record is being saved, the save still completes but the screen is rebuilt, so the confirmation message may not show.
 - Accounts and personal records are stored on the phone only, so they are not shared between devices. Only the public request list comes from the network.
 - The request feed is read-only in the app. Requests are added by an administrator in the Firebase console (hospital posting and sign-in are not built).
+- Alerts need a connection to learn about new requests, and the background job can only use the last saved position.
 - Without a position (permission denied, or none saved yet) distances are not shown and the radius filter is not applied.
