@@ -253,9 +253,9 @@ LifeLink works without any connection, because every record and account is store
 |---|---|
 | No signal, app opened | Login, Home, adding, editing and deleting records all work, since they use only the local database |
 | App closed or the phone restarted | The records are still there when it is opened again |
-| Urgent requests (sample data until M4) | Shown from the app itself. In M4 they are fetched over the network and the last result is kept in SQLite, so the list still shows with a "last updated" time when offline |
+| Urgent requests | Fetched from the live feed over HTTPS (Milestone 4); the last result is kept in SQLite, so the list still shows with a "last updated" time when offline |
 
-Alerts and nearby requests are added in Milestone 4.
+Alerts and nearby requests were added in Milestone 4 (sections 10b to 10d).
 
 ### How I tested it
 
@@ -312,6 +312,12 @@ Manual checklist:
 - **Facility dropdown.** The hospital or blood bank in the add and edit forms is now chosen from a list instead of typed, so facilities cannot be invented or misspelt. The list is nearest first when a position is known (the saved or Demo mode position), otherwise alphabetical. It is a bundled starter list with real facility names and town-level coordinates; a later version would load it from the server. A facility on an older record that is not in the list is kept so that record can still be edited. This does not prove that a donation happened: donations remain self-reported, and the blood bank's screening decides.
 - **Location permission.** The system dialog now appears automatically the first time Home opens. The button on Home is only for asking again after a refusal, or for opening Settings after "Don't ask again".
 - **Sync on reconnect.** After a failed download, the app downloads again as soon as the network returns while Home is open, and also queues one background check (WorkManager, network required) for when the app is closed.
+
+## 10e. Building a signed release
+
+1. In Android Studio: Build, Generate Signed App Bundle or APK, create a keystore and keep it OUTSIDE the repository.
+2. Or create `keystore.properties` in the project root (it is ignored by git) with `storeFile`, `storePassword`, `keyAlias` and `keyPassword`, then run `./gradlew assembleRelease`. The signed APK is in `app/build/outputs/apk/release/`.
+3. Code shrinking (R8) is left off, because it has not been tested on a phone.
 
 ---
 

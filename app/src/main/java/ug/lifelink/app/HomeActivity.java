@@ -75,6 +75,8 @@ public class HomeActivity extends AppCompatActivity {
     private static final String TAG = "HomeActivity";
     private static final String KEY_CONFIRM_LOGOUT = "confirm_logout";
     /** The feed is fetched again only when the saved copy is older than this. */
+    /** onResume re-checks the requests only when the last check is older than this. */
+    private static final long RESUME_REBIND_MS = 3000L;
     private static final long FEED_STALE_MS = 5L * 60 * 1000;
 
     public static final String EXTRA_USER_ID = "ug.lifelink.app.extra.USER_ID";
@@ -109,6 +111,7 @@ public class HomeActivity extends AppCompatActivity {
     private RequestCache requestCache;
     private LocationStore locationStore;
     private long lastFeedAttempt;
+    private long lastUrgentBind;
     /** True after a download failed; the next time the network returns, the feed is fetched at once. */
     private boolean feedOffline;
     private ConnectivityManager.NetworkCallback networkCallback;
@@ -191,7 +194,9 @@ public class HomeActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         // Back from Settings (or another screen): re-check permission and the saved requests.
-        if (currentUser != null && !currentUser.isHospital()) {
+        // Skip when the list was bound a moment ago (first launch binds it from onUserLoaded).
+        if (currentUser != null && !currentUser.isHospital()
+                && System.currentTimeMillis() - lastUrgentBind > RESUME_REBIND_MS) {
             bindUrgentRequests(currentUser);
         }
     }
@@ -527,6 +532,7 @@ public class HomeActivity extends AppCompatActivity {
      * copy is stale, then add distances once a position is known.
      */
     private void bindUrgentRequests(final User user) {
+        lastUrgentBind = System.currentTimeMillis();
         tvUrgentHeader.setVisibility(View.VISIBLE);
         llUrgent.setVisibility(View.VISIBLE);
 
