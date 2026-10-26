@@ -48,7 +48,7 @@ public final class RequestChecker {
             try {
                 RequestFeedParser.Result result = RequestFeedClient.fetch();
                 cache.replaceAll(result.requests, System.currentTimeMillis());
-            } catch (java.io.IOException | org.json.JSONException e) {
+            } catch (java.io.IOException e) {
                 Log.w(TAG, "Feed not reachable, checking the saved copy", e);
             }
         }

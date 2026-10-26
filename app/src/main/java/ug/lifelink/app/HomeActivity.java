@@ -502,7 +502,7 @@ public class HomeActivity extends AppCompatActivity {
                         RequestFeedParser.Result result = RequestFeedClient.fetch();
                         requestCache.replaceAll(result.requests, now);
                         skipped = result.skipped;
-                    } catch (java.io.IOException | org.json.JSONException e) {
+                    } catch (java.io.IOException e) {
                         Log.w(TAG, "Feed not reachable, using the saved copy", e);
                         offline = true;
                     }
