@@ -38,8 +38,10 @@ public class DemoActivity extends AppCompatActivity {
     static final String EXTRA_USER_ID = "ug.lifelink.app.extra.USER_ID";
 
     private static final String[] PLACES = {"Mbarara", "Kabale", "Kampala", "Mbale"};
+    // A few kilometres from each town centre (where the sample requests are), so distances
+    // are realistic instead of 0.0 km.
     private static final double[][] COORDS = {
-            {-0.6072, 30.6545}, {-1.2490, 29.9899}, {0.3476, 32.5825}, {1.0775, 34.1753}};
+            {-0.6310, 30.6700}, {-1.2700, 30.0100}, {0.3300, 32.6000}, {1.0600, 34.1900}};
     /** About 3 km north of the pretend position. */
     private static final double TEST_OFFSET_DEG = 0.027;
 
