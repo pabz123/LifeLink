@@ -105,7 +105,22 @@
 
     <string name="urgent_header">Urgent requests near you</string>
     <string name="urgent_hint_unknown">Your blood group is not confirmed yet, so LifeLink cannot match you to a request. Donate at a blood bank to confirm it, then update your profile.</string>
-    <string name="urgent_none">No requests match your blood group right now.</string>
+    <string name="urgent_none">No requests match your blood group near you right now.</string>
+    <string name="urgent_offline_empty">No requests saved on this phone yet. Connect to the internet once to load them.</string>
+    <string name="urgency_critical">Critical</string>
+    <string name="urgency_urgent">Urgent</string>
+    <string name="urgency_routine">Routine</string>
+    <string name="request_verified">Verified hospital</string>
+    <string name="request_not_verified">Not yet verified</string>
+    <string name="distance_unknown">Distance unknown</string>
+    <string name="feed_updated">Updated %1$s</string>
+    <string name="feed_never">Not updated yet</string>
+    <string name="feed_offline">Offline. Showing requests saved at %1$s.</string>
+    <string name="feed_skipped">%1$d invalid entries were ignored.</string>
+    <string name="location_prompt">Allow approximate location to see how far each request is. Your location stays on this phone.</string>
+    <string name="location_allow">Allow location</string>
+    <string name="location_open_settings">Open settings</string>
+    <string name="location_denied_hint">Location is off, so every matching request is shown without distances.</string>
     <string name="urgent_subtitle">%1$s, %2$s</string>
     <string name="distance_km">%1$.1f km away</string>
 
@@ -140,7 +155,7 @@
     <string name="logout_confirm_title">Log out?</string>
     <string name="logout_confirm_message">You will need to log in again to see your records.</string>
     <string name="about_title">About LifeLink</string>
-    <string name="about_message">LifeLink Uganda connects blood donors with hospitals and blood banks, so urgent needs reach eligible donors quickly.\n\nThis is a coursework build. Your records are kept in the app only while it runs, and the urgent requests shown are samples.</string>
+    <string name="about_message">LifeLink Uganda connects blood donors with hospitals and blood banks, so urgent needs reach eligible donors quickly.\n\nThis is a coursework build. Your records are stored on this phone. Urgent requests are read from the LifeLink feed and saved for offline use; your location is used only on this phone to work out distances.</string>
     <string name="delete_confirm_title">Delete this record?</string>
     <string name="delete_confirm_message">This cannot be undone.</string>
 

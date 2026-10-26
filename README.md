@@ -71,10 +71,18 @@ app/
       data/SqliteRecordStore.java    The SQLite store: every query has user_id = ? (Milestone 3)
       data/InMemoryRecordStore.java  A list-based store used only by the unit tests
       data/AppData.java              Builds the one shared RecordRepository for the whole app
-      data/SampleData.java           Starter records and sample urgent requests (API replaces them in M4)
+      data/SampleData.java           Starter records for a new account
+      data/RequestCache.java         The phone's saved copy of the request feed (offline use)
+      net/RequestFeedClient.java     Downloads the request feed over HTTPS (8 s timeouts, 512 KB cap)
+      net/RequestFeedParser.java     Validates every feed entry; bad entries are skipped and counted
+      location/LocationStore.java    Last known position (kept on the phone only)
+      location/DeviceLocation.java   Approximate location through Google Play services
+      util/Geo.java                  Haversine distance between two coordinates
+      util/RequestMatcher.java       Blood-group match, expiry, radius by urgency, sort order
+      model/Urgency.java             Critical, Urgent, Routine and their search radii
       model/User.java                A registered user
       model/BloodRecord.java         A donation (donor) or a blood request (hospital)
-      model/UrgentRequest.java       An urgent request shown to matching donors
+      model/UrgentRequest.java       A live request from a hospital, shown to matching donors
       ui/EligibilityRingView.java    Custom View: progress ring drawn on a Canvas
       ui/ConfirmDialogFragment.java  Reusable confirmation or information dialog (survives rotation)
       ui/StatusLabels.java           Turns status codes into display text
@@ -260,12 +268,30 @@ Manual checklist:
 
 ---
 
+## 10b. Milestone 4 (Drop B1): live requests, offline copy and distances
+
+- **Feed.** The Home screen reads `requests.json` from the Firebase Realtime Database over plain HTTPS (REST, no SDK). The database rules allow reading `requests` only and nothing is writable from the app.
+- **Validation.** Every entry is checked with the same rules as the forms (blood group, units 1 to 20, facility, note length, phone, coordinate ranges). An entry that breaks a rule is skipped and the number skipped is shown. Text such as `null` or an HTML error page never crashes the screen.
+- **Offline.** After every successful download the whole list is saved in the `request_cache` table (database version 4, added by a non-destructive upgrade). Without a connection the saved copy is shown with the time it was saved. The table holds public hospital data only, nothing about a user.
+- **Matching on the phone.** Expired requests and incompatible blood groups are removed. With a position known, the radius depends on urgency: Critical 15 km, Urgent 30 km, Routine 50 km, multiplied by 1.5 for Rh-negative requests. Order: most urgent first, then nearest, then newest.
+- **Location.** Only `ACCESS_COARSE_LOCATION` is requested. The distance is calculated on the phone and the position is never sent anywhere. If the permission is denied, every compatible request is still shown, without distances. After a permanent denial the button opens the app's settings page.
+- **Not yet done.** Alerts and notifications while the app is closed, and Demo mode, are Drop B2.
+
+### How I tested it (Drop B1)
+
+- 88 unit tests (25 new: `GeoTest`, `UrgencyTest`, `RequestMatcherTest`, `RequestFeedParserTest`).
+- Database checks against real SQLite: cache replace, round trip of coordinates and NULL positions, survival after a restart, and the version 3 to 4 upgrade keeping existing accounts.
+- Not yet run on a phone at the time of writing; the Gradle build and the screens need to be checked on a device.
+
+---
+
 ## 11. AI tools used
 
 | Tool | What it helped build |
 |---|---|
 | Claude / IDE AI Assistant | Assisted in drafting M1 & M2 project files: Java source classes, XML layouts, resource bundles, custom Canvas views, unit tests, and filling out the README documentation. All code was reviewed, built, tested, and validated locally. |
 | Claude (M3) | Drafted `RecordStore`, `SqliteRecordStore`, `InMemoryRecordStore`, `AppData`, the database version 3 upgrade, the move of record reads and writes to a background thread, and the extra unit tests. I can explain and change these. |
+| Claude (M4, B1) | Drafted the request feed client and parser, `RequestCache` and the version 4 upgrade, `Geo`, `Urgency`, `RequestMatcher`, the location classes, the Home wiring (permission prompt, offline status line) and their tests. I can explain and change these. |
 
 ---
 
@@ -274,4 +300,6 @@ Manual checklist:
 - New accounts start with a few sample records, which the user can edit or delete.
 - The database is not encrypted. It is in the app's private storage, but a rooted phone could read it.
 - If the phone is rotated at the exact moment a record is being saved, the save still completes but the screen is rebuilt, so the confirmation message may not show.
-- Data is stored on the phone only, so records are not shared between devices until the REST API step in M4.
+- Accounts and personal records are stored on the phone only, so they are not shared between devices. Only the public request list comes from the network.
+- The request feed is read-only in the app. Requests are added by an administrator in the Firebase console (hospital posting and sign-in are not built).
+- Without a position (permission denied, or none saved yet) distances are not shown and the radius filter is not applied.

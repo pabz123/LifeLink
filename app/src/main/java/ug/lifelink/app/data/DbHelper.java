@@ -18,7 +18,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 public class DbHelper extends SQLiteOpenHelper {
 
     public static final String DB_NAME = "lifelink.db";
-    public static final int DB_VERSION = 3;
+    public static final int DB_VERSION = 4;
 
     // users
     public static final String T_USERS = "users";
@@ -51,6 +51,19 @@ public class DbHelper extends SQLiteOpenHelper {
     public static final String C_FACILITY = "facility";
     public static final String C_STATUS = "status";
     public static final String C_NOTE = "note";
+
+    // request_cache: the last copy of the shared request list, so the app works offline.
+    // It holds public hospital requests only, never anything about a user.
+    public static final String T_REQUEST_CACHE = "request_cache";
+    public static final String C_REMOTE_ID = "remote_id";
+    public static final String C_URGENCY = "urgency";
+    public static final String C_CONTACT_PHONE = "contact_phone";
+    public static final String C_LAT = "lat";
+    public static final String C_LNG = "lng";
+    public static final String C_VERIFIED = "verified";
+    public static final String C_POSTED_AT = "posted_at";
+    public static final String C_EXPIRES_AT = "expires_at";
+    public static final String C_FETCHED_AT = "fetched_at";
 
     private static DbHelper instance;
 
@@ -108,6 +121,28 @@ public class DbHelper extends SQLiteOpenHelper {
         // Every record query filters by user_id, so index it (newest first).
         db.execSQL("CREATE INDEX idx_records_user ON " + T_RECORDS
                 + "(" + C_USER_ID + ", " + C_CREATED_AT + " DESC)");
+
+        createRequestCache(db);
+    }
+
+    /** Used by onCreate and by the version 4 upgrade step, so both give the same table. */
+    private void createRequestCache(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS " + T_REQUEST_CACHE + " ("
+                + C_REMOTE_ID + " TEXT PRIMARY KEY, "
+                + C_FACILITY + " TEXT NOT NULL, "
+                + C_BLOOD_GROUP + " TEXT NOT NULL CHECK (" + C_BLOOD_GROUP
+                + " IN ('A+','A-','B+','B-','AB+','AB-','O+','O-')), "
+                + C_UNITS + " INTEGER NOT NULL CHECK (" + C_UNITS + " BETWEEN 1 AND 20), "
+                + C_URGENCY + " TEXT NOT NULL CHECK (" + C_URGENCY
+                + " IN ('CRITICAL','URGENT','ROUTINE')), "
+                + C_NOTE + " TEXT NOT NULL DEFAULT '', "
+                + C_CONTACT_PHONE + " TEXT NOT NULL DEFAULT '', "
+                + C_LAT + " REAL, "
+                + C_LNG + " REAL, "
+                + C_VERIFIED + " INTEGER NOT NULL DEFAULT 0 CHECK (" + C_VERIFIED + " IN (0,1)), "
+                + C_POSTED_AT + " INTEGER NOT NULL DEFAULT 0, "
+                + C_EXPIRES_AT + " INTEGER NOT NULL DEFAULT 0, "
+                + C_FETCHED_AT + " INTEGER NOT NULL)");
     }
 
     @Override
@@ -125,6 +160,10 @@ public class DbHelper extends SQLiteOpenHelper {
             // Version 3 (Milestone 3): remember that a user has been given the sample records,
             // now that records are stored and no longer start empty after every launch.
             db.execSQL("ALTER TABLE " + T_USERS + " ADD COLUMN " + RECORDS_SEEDED_DDL);
+        }
+        if (oldVersion < 4) {
+            // Version 4 (Milestone 4): the offline copy of the shared request list.
+            createRequestCache(db);
         }
     }
 }

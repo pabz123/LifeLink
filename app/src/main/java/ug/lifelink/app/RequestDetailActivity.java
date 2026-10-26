@@ -47,6 +47,10 @@ public class RequestDetailActivity extends AppCompatActivity {
     private static final String EXTRA_STATUS = "ug.lifelink.app.extra.STATUS";
     private static final String EXTRA_NOTE = "ug.lifelink.app.extra.NOTE";
     private static final String EXTRA_PHONE = "ug.lifelink.app.extra.PHONE";
+    private static final String EXTRA_URGENCY = "ug.lifelink.app.extra.URGENCY";
+    private static final String EXTRA_LAT = "ug.lifelink.app.extra.LAT";
+    private static final String EXTRA_LNG = "ug.lifelink.app.extra.LNG";
+    private static final String EXTRA_VERIFIED = "ug.lifelink.app.extra.VERIFIED";
 
     /** Builds the Intent that opens this screen, so Home does not need to know the extra names. */
     public static Intent createIntent(Context context, long userId, String donorGroup,
@@ -57,8 +61,11 @@ public class RequestDetailActivity extends AppCompatActivity {
                 .putExtra(EXTRA_FACILITY, request.getFacility())
                 .putExtra(EXTRA_GROUP, request.getBloodGroup())
                 .putExtra(EXTRA_UNITS, request.getUnits())
-                .putExtra(EXTRA_DISTANCE, request.getDistanceKm())
-                .putExtra(EXTRA_STATUS, request.getStatus())
+                .putExtra(EXTRA_DISTANCE, request.getDistanceKm()) // NaN when unknown
+                .putExtra(EXTRA_URGENCY, request.getUrgency())
+                .putExtra(EXTRA_LAT, request.getLat())
+                .putExtra(EXTRA_LNG, request.getLng())
+                .putExtra(EXTRA_VERIFIED, request.isVerified())
                 .putExtra(EXTRA_NOTE, request.getNote())
                 .putExtra(EXTRA_PHONE, request.getContactPhone());
     }
@@ -69,6 +76,8 @@ public class RequestDetailActivity extends AppCompatActivity {
     private String group;
     private int units;
     private String phone;
+    private double lat = Double.NaN;
+    private double lng = Double.NaN;
 
     /** Receives the answer from the add-donation form and passes it on to Home. */
     private final ActivityResultLauncher<Intent> donationForm = registerForActivityResult(
@@ -95,18 +104,24 @@ public class RequestDetailActivity extends AppCompatActivity {
         donorGroup = in.getStringExtra(EXTRA_DONOR_GROUP);
         units = in.getIntExtra(EXTRA_UNITS, 1);
         phone = in.getStringExtra(EXTRA_PHONE);
-        double distanceKm = in.getDoubleExtra(EXTRA_DISTANCE, 0.0);
-        String status = in.getStringExtra(EXTRA_STATUS);
+        double distanceKm = in.getDoubleExtra(EXTRA_DISTANCE, Double.NaN);
+        lat = in.getDoubleExtra(EXTRA_LAT, Double.NaN);
+        lng = in.getDoubleExtra(EXTRA_LNG, Double.NaN);
+        boolean verified = in.getBooleanExtra(EXTRA_VERIFIED, false);
+        String urgency = in.getStringExtra(EXTRA_URGENCY);
         String reason = in.getStringExtra(EXTRA_NOTE);
 
         setContentView(R.layout.activity_request_detail);
 
         ((TextView) findViewById(R.id.tvGroup)).setText(BloodGroups.badgeText(group));
         ((TextView) findViewById(R.id.tvFacility)).setText(facility);
-        StatusLabels.apply(this, (TextView) findViewById(R.id.tvStatus),
-                status == null ? BloodRecord.STATUS_OPEN : status);
+        StatusLabels.applyUrgency(this, (TextView) findViewById(R.id.tvStatus), urgency);
         ((TextView) findViewById(R.id.tvUnits)).setText(unitsText());
-        ((TextView) findViewById(R.id.tvDistance)).setText(getString(R.string.distance_km, distanceKm));
+        String distanceText = Double.isNaN(distanceKm) ? getString(R.string.distance_unknown)
+                : getString(R.string.distance_km, distanceKm);
+        String verifiedText = getString(verified ? R.string.request_verified
+                : R.string.request_not_verified);
+        ((TextView) findViewById(R.id.tvDistance)).setText(distanceText + ". " + verifiedText);
         ((TextView) findViewById(R.id.tvReason)).setText(reason == null || reason.isEmpty() ? "-" : reason);
 
         ((ImageButton) findViewById(R.id.btnBack)).setOnClickListener(v -> finish());
@@ -134,8 +149,12 @@ public class RequestDetailActivity extends AppCompatActivity {
     }
 
     private void openMaps() {
-        Intent maps = new Intent(Intent.ACTION_VIEW,
-                Uri.parse("geo:0,0?q=" + Uri.encode(facility)));
+        // Exact coordinates when the hospital published them; otherwise search by name.
+        Uri target = Double.isNaN(lat) || Double.isNaN(lng)
+                ? Uri.parse("geo:0,0?q=" + Uri.encode(facility))
+                : Uri.parse("geo:" + lat + "," + lng + "?q=" + lat + "," + lng
+                        + "(" + Uri.encode(facility) + ")");
+        Intent maps = new Intent(Intent.ACTION_VIEW, target);
         launch(maps, R.string.error_no_maps);
     }
 

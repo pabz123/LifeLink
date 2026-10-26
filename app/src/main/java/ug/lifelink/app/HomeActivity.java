@@ -1,6 +1,9 @@
 package ug.lifelink.app;
 
+import android.Manifest;
 import android.content.Intent;
+import android.net.Uri;
+import android.provider.Settings;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -19,7 +22,8 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
+import java.text.DateFormat;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
@@ -27,18 +31,23 @@ import java.util.concurrent.Executors;
 
 import ug.lifelink.app.data.AppData;
 import ug.lifelink.app.data.RecordRepository;
+import ug.lifelink.app.data.RequestCache;
 import ug.lifelink.app.data.SampleData;
 import ug.lifelink.app.data.UserRepository;
 import ug.lifelink.app.model.BloodRecord;
+import ug.lifelink.app.location.DeviceLocation;
+import ug.lifelink.app.location.LocationStore;
 import ug.lifelink.app.model.UrgentRequest;
+import ug.lifelink.app.net.RequestFeedClient;
+import ug.lifelink.app.net.RequestFeedParser;
 import ug.lifelink.app.model.User;
 import ug.lifelink.app.ui.ConfirmDialogFragment;
 import ug.lifelink.app.ui.EligibilityRingView;
 import ug.lifelink.app.ui.RecordAdapter;
 import ug.lifelink.app.ui.StatusLabels;
-import ug.lifelink.app.util.BloodCompatibility;
 import ug.lifelink.app.util.BloodGroups;
 import ug.lifelink.app.util.Eligibility;
+import ug.lifelink.app.util.RequestMatcher;
 import ug.lifelink.app.util.SessionManager;
 
 /**
@@ -53,13 +62,15 @@ import ug.lifelink.app.util.SessionManager;
  * Milestone 2: the records come from RecordRepository, a collection the user changes with the
  * add and edit screens (tap a record to edit it, tap Add to create one). Tapping an urgent
  * request opens its details. The three-dot menu holds the app-wide actions. Milestone 3
- * replaces the repository's storage with SQLite and Milestone 4 replaces the urgent requests
- * with the REST API.
+ * replaces the repository's storage with SQLite. Milestone 4 reads the urgent requests from the
+ * live feed, keeps a copy in SQLite for offline use, and works out distances on the phone.
  */
 public class HomeActivity extends AppCompatActivity {
 
     private static final String TAG = "HomeActivity";
     private static final String KEY_CONFIRM_LOGOUT = "confirm_logout";
+    /** The feed is fetched again only when the saved copy is older than this. */
+    private static final long FEED_STALE_MS = 5L * 60 * 1000;
 
     public static final String EXTRA_USER_ID = "ug.lifelink.app.extra.USER_ID";
 
@@ -83,10 +94,16 @@ public class HomeActivity extends AppCompatActivity {
     private TextView tvListHeader;
     private TextView tvEmptyRecords;
     private Button btnAddRecord;
+    private TextView tvFeedStatus;
+    private TextView tvLocationPrompt;
+    private Button btnLocation;
 
     private RecordAdapter adapter;
     private UserRepository users;
     private RecordRepository recordStore;
+    private RequestCache requestCache;
+    private LocationStore locationStore;
+    private long lastFeedAttempt;
     private User currentUser;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
 
@@ -107,6 +124,14 @@ public class HomeActivity extends AppCompatActivity {
                     } else if (RecordEditActivity.RESULT_SAVED.equals(what)) {
                         Toast.makeText(this, R.string.record_saved, Toast.LENGTH_SHORT).show();
                     }
+                }
+            });
+
+    /** Result of the location permission dialog. Granted: refresh with the real position. */
+    private final ActivityResultLauncher<String> locationPermission = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(), granted -> {
+                if (currentUser != null && !currentUser.isHospital()) {
+                    bindUrgentRequests(currentUser);
                 }
             });
 
@@ -144,7 +169,18 @@ public class HomeActivity extends AppCompatActivity {
 
         users = new UserRepository(this);
         recordStore = AppData.records(this);
+        requestCache = new RequestCache(this);
+        locationStore = new LocationStore(this);
         loadUser(userId);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Back from Settings (or another screen): re-check permission and the saved requests.
+        if (currentUser != null && !currentUser.isHospital()) {
+            bindUrgentRequests(currentUser);
+        }
     }
 
     @Override
@@ -180,6 +216,9 @@ public class HomeActivity extends AppCompatActivity {
         tvListHeader = header.findViewById(R.id.tvListHeader);
         tvEmptyRecords = header.findViewById(R.id.tvEmptyRecords);
         btnAddRecord = header.findViewById(R.id.btnAddRecord);
+        tvFeedStatus = header.findViewById(R.id.tvFeedStatus);
+        tvLocationPrompt = header.findViewById(R.id.tvLocationPrompt);
+        btnLocation = header.findViewById(R.id.btnLocation);
     }
 
     // ------------------------------------------------------------------ loading
@@ -240,6 +279,8 @@ public class HomeActivity extends AppCompatActivity {
             tvUrgentHeader.setVisibility(View.GONE);
             tvUrgentHint.setVisibility(View.GONE);
             llUrgent.setVisibility(View.GONE);
+            tvFeedStatus.setVisibility(View.GONE);
+            hideLocationPrompt();
         } else {
             tvListHeader.setText(R.string.list_header_donor);
             bindUrgentRequests(user);
@@ -399,25 +440,144 @@ public class HomeActivity extends AppCompatActivity {
 
     // ------------------------------------------------------------------ urgent requests
 
-    /** Shows only the requests this donor's blood can help with, nearest first. */
-    private void bindUrgentRequests(User user) {
+    /**
+     * Shows the requests this donor's blood can help with, most urgent first. Order of work:
+     * show the saved copy straight away (works offline), then refresh from the feed when the
+     * copy is stale, then add distances once a position is known.
+     */
+    private void bindUrgentRequests(final User user) {
         tvUrgentHeader.setVisibility(View.VISIBLE);
         llUrgent.setVisibility(View.VISIBLE);
-        llUrgent.removeAllViews();
 
         if (!BloodGroups.isKnown(user.getBloodGroup())) {
+            llUrgent.removeAllViews();
             tvUrgentHint.setText(R.string.urgent_hint_unknown);
+            tvUrgentHint.setVisibility(View.VISIBLE);
+            tvFeedStatus.setVisibility(View.GONE);
+            hideLocationPrompt();
+            return;
+        }
+
+        final boolean refresh = System.currentTimeMillis() - lastFeedAttempt > FEED_STALE_MS;
+        if (refresh) {
+            lastFeedAttempt = System.currentTimeMillis();
+        }
+        worker.execute(() -> {
+            boolean offline = false;
+            int skipped = 0;
+            List<UrgentRequest> saved = null;
+            long fetchedAt = 0L;
+            try {
+                long now = System.currentTimeMillis();
+                if (refresh || requestCache.lastFetchedAt() == 0L
+                        || now - requestCache.lastFetchedAt() > FEED_STALE_MS) {
+                    try {
+                        RequestFeedParser.Result result = RequestFeedClient.fetch();
+                        requestCache.replaceAll(result.requests, now);
+                        skipped = result.skipped;
+                    } catch (java.io.IOException | org.json.JSONException e) {
+                        Log.w(TAG, "Feed not reachable, using the saved copy", e);
+                        offline = true;
+                    }
+                }
+                saved = requestCache.listAll();
+                fetchedAt = requestCache.lastFetchedAt();
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Could not read the saved requests", e);
+            }
+            final List<UrgentRequest> all = saved;
+            final boolean wasOffline = offline;
+            final int bad = skipped;
+            final long at = fetchedAt;
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
+                renderUrgent(user, all, at, wasOffline, bad);
+                findPosition(user, all, at, wasOffline, bad);
+            });
+        });
+    }
+
+    /** Asks for a fresh position when allowed; otherwise offers the permission prompt. */
+    private void findPosition(final User user, final List<UrgentRequest> all, final long at,
+                              final boolean offline, final int bad) {
+        if (locationStore.isDemoOn()) {
+            hideLocationPrompt();
+            return;
+        }
+        if (DeviceLocation.hasPermission(this)) {
+            hideLocationPrompt();
+            DeviceLocation.get(this, location -> {
+                if (location == null || isFinishing() || isDestroyed()) {
+                    return;
+                }
+                locationStore.saveLast(location.getLatitude(), location.getLongitude(),
+                        System.currentTimeMillis());
+                renderUrgent(user, all, at, offline, bad);
+            });
+            return;
+        }
+        showLocationPrompt();
+    }
+
+    private void showLocationPrompt() {
+        final boolean askedBefore = locationStore.wasPermissionAsked();
+        final boolean canAskAgain = androidx.core.app.ActivityCompat
+                .shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_COARSE_LOCATION);
+        // Asked before and no rationale offered means "Don't ask again": only Settings can help.
+        final boolean needsSettings = askedBefore && !canAskAgain;
+        tvLocationPrompt.setText(needsSettings ? R.string.location_denied_hint : R.string.location_prompt);
+        tvLocationPrompt.setVisibility(View.VISIBLE);
+        btnLocation.setText(needsSettings ? R.string.location_open_settings : R.string.location_allow);
+        btnLocation.setVisibility(View.VISIBLE);
+        btnLocation.setOnClickListener(v -> {
+            if (needsSettings) {
+                startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.fromParts("package", getPackageName(), null)));
+            } else {
+                locationStore.markPermissionAsked();
+                locationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION);
+            }
+        });
+    }
+
+    private void hideLocationPrompt() {
+        tvLocationPrompt.setVisibility(View.GONE);
+        btnLocation.setVisibility(View.GONE);
+    }
+
+    /** Matches the saved requests to this donor and draws the rows. Main thread only. */
+    private void renderUrgent(User user, List<UrgentRequest> all, long fetchedAt,
+                              boolean offline, int skipped) {
+        llUrgent.removeAllViews();
+
+        DateFormat time = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
+        String when = fetchedAt > 0 ? time.format(new Date(fetchedAt)) : "";
+        String status;
+        if (fetchedAt == 0L) {
+            status = getString(R.string.feed_never);
+        } else if (offline) {
+            status = getString(R.string.feed_offline, when);
+        } else {
+            status = getString(R.string.feed_updated, when);
+        }
+        if (skipped > 0) {
+            status = status + " " + getString(R.string.feed_skipped, skipped);
+        }
+        tvFeedStatus.setText(status);
+        tvFeedStatus.setVisibility(View.VISIBLE);
+
+        if (all == null || all.isEmpty()) {
+            tvUrgentHint.setText(fetchedAt == 0L ? R.string.urgent_offline_empty : R.string.urgent_none);
             tvUrgentHint.setVisibility(View.VISIBLE);
             return;
         }
 
-        List<UrgentRequest> matched = new ArrayList<>();
-        for (UrgentRequest request : SampleData.urgentRequests()) {
-            if (BloodCompatibility.canDonateTo(user.getBloodGroup(), request.getBloodGroup())) {
-                matched.add(request);
-            }
-        }
-        Collections.sort(matched, (a, b) -> Double.compare(a.getDistanceKm(), b.getDistanceKm()));
+        double[] where = locationStore.effective();
+        List<UrgentRequest> matched = RequestMatcher.match(user.getBloodGroup(), where != null,
+                where == null ? 0 : where[0], where == null ? 0 : where[1],
+                System.currentTimeMillis(), all);
 
         if (matched.isEmpty()) {
             tvUrgentHint.setText(R.string.urgent_none);
@@ -434,10 +594,12 @@ public class HomeActivity extends AppCompatActivity {
 
             String units = getResources().getQuantityString(R.plurals.record_units,
                     request.getUnits(), request.getUnits());
-            String distance = getString(R.string.distance_km, request.getDistanceKm());
+            String distance = request.hasDistance()
+                    ? getString(R.string.distance_km, request.getDistanceKm())
+                    : getString(R.string.distance_unknown);
             ((TextView) row.findViewById(R.id.tvSubtitle))
                     .setText(getString(R.string.urgent_subtitle, units, distance));
-            StatusLabels.apply(this, (TextView) row.findViewById(R.id.tvStatus), request.getStatus());
+            StatusLabels.applyUrgency(this, (TextView) row.findViewById(R.id.tvStatus), request.getUrgency());
 
             row.setOnClickListener(v -> openRequestDetail(request));
             llUrgent.addView(row);
