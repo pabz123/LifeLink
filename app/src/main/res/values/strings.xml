@@ -128,6 +128,8 @@
     <string name="alert_title_critical">Critical blood request near you</string>
     <string name="alert_title_urgent">Urgent blood request near you</string>
     <string name="alert_text">%1$s needed at %2$s, %3$.1f km away. Tap to open LifeLink.</string>
+    <string name="self_reported_note">Self-reported: you enter these yourself. The blood bank confirms your eligibility when you donate.</string>
+    <string name="session_expired">You were signed out after 15 minutes away. Please log in again.</string>
     <string name="urgent_header">Urgent requests near you</string>
     <string name="urgent_hint_unknown">Your blood group is not confirmed yet, so LifeLink cannot match you to a request. Donate at a blood bank to confirm it, then update your profile.</string>
     <string name="urgent_none">No requests match your blood group near you right now.</string>

@@ -160,6 +160,15 @@
     </LinearLayout>
 
     <TextView
+        android:id="@+id/tvSelfReported"
+        style="@style/LL.Text.Caption"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_xs"
+        android:text="@string/self_reported_note"
+        android:visibility="gone" />
+
+    <TextView
         android:id="@+id/tvEmptyRecords"
         style="@style/LL.Text.Caption"
         android:layout_width="match_parent"

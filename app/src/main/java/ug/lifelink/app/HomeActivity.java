@@ -99,6 +99,7 @@ public class HomeActivity extends AppCompatActivity {
     private TextView tvUrgentHint;
     private LinearLayout llUrgent;
     private TextView tvListHeader;
+    private TextView tvSelfReported;
     private TextView tvEmptyRecords;
     private Button btnAddRecord;
     private TextView tvFeedStatus;
@@ -204,12 +205,23 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
+        // Session management: coming back after too long away means logging in again.
+        SessionManager session = new SessionManager(this);
+        long id = getIntent().getLongExtra(EXTRA_USER_ID, -1L);
+        if (!session.isSessionValid(id, System.currentTimeMillis())) {
+            session.clear();
+            Toast.makeText(this, R.string.session_expired, Toast.LENGTH_LONG).show();
+            goToLogin();
+            return;
+        }
+        session.touch(id);
         watchNetwork();
     }
 
     @Override
     protected void onStop() {
         unwatchNetwork();
+        new SessionManager(this).touch(getIntent().getLongExtra(EXTRA_USER_ID, -1L));
         super.onStop();
     }
 
@@ -281,6 +293,7 @@ public class HomeActivity extends AppCompatActivity {
         tvUrgentHint = header.findViewById(R.id.tvUrgentHint);
         llUrgent = header.findViewById(R.id.llUrgent);
         tvListHeader = header.findViewById(R.id.tvListHeader);
+        tvSelfReported = header.findViewById(R.id.tvSelfReported);
         tvEmptyRecords = header.findViewById(R.id.tvEmptyRecords);
         btnAddRecord = header.findViewById(R.id.btnAddRecord);
         tvFeedStatus = header.findViewById(R.id.tvFeedStatus);
@@ -343,6 +356,7 @@ public class HomeActivity extends AppCompatActivity {
 
         if (user.isHospital()) {
             tvListHeader.setText(R.string.list_header_hospital);
+            tvSelfReported.setVisibility(View.GONE);
             tvUrgentHeader.setVisibility(View.GONE);
             tvUrgentHint.setVisibility(View.GONE);
             llUrgent.setVisibility(View.GONE);
@@ -350,6 +364,7 @@ public class HomeActivity extends AppCompatActivity {
             hideLocationPrompt();
         } else {
             tvListHeader.setText(R.string.list_header_donor);
+            tvSelfReported.setVisibility(View.VISIBLE);
             bindUrgentRequests(user);
             AlertScheduler.schedule(this); // background check about every 15 minutes
         }

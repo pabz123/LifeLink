@@ -100,7 +100,8 @@ app/
       util/BloodGroups.java          Blood group codes, including UNKNOWN and NA
       util/BloodCompatibility.java   ABO and Rh matching of donor to request
       util/PasswordHasher.java       PBKDF2 salted hashing (passwords and security answers)
-      util/SessionManager.java       "Keep me signed in" using SharedPreferences
+      util/SessionManager.java       "Keep me signed in" and the idle session, using SharedPreferences
+      util/SessionPolicy.java        The 15-minute idle timeout rule
       util/Eligibility.java          90-day donor eligibility rule
       util/SimpleTextWatcher.java    Small helper for text-change events
     res/
@@ -218,6 +219,7 @@ app/
 
 | Risk | Control | Where in the code |
 |---|---|---|
+| A phone left unlocked or handed to someone while the app is in the background | Sessions end after 15 minutes idle and the person must log in again. "Keep me signed in" is an explicit choice that skips the timeout. Only the user id is stored, never a password. Logout clears both | `util/SessionManager.java`, `util/SessionPolicy.java`, `HomeActivity.onStart` |
 | Stolen database reveals passwords | Passwords are never stored in plain text. Each is salted and hashed with PBKDF2-HMAC-SHA256 (100,000 iterations, 16-byte random salt) | `util/PasswordHasher.java`, `data/UserRepository.create` |
 | Stolen database reveals security answers | Answers are normalised, then salted and hashed the same way | `UserRepository.create`, `resetPassword` |
 | SQL injection through form input | Every query uses `?` placeholders or `ContentValues`, never string concatenation of user input | `data/UserRepository.java` |
@@ -311,6 +313,8 @@ Manual checklist:
 
 - **Facility dropdown.** The hospital or blood bank in the add and edit forms is now chosen from a list instead of typed, so facilities cannot be invented or misspelt. The list is nearest first when a position is known (the saved or Demo mode position), otherwise alphabetical. It is a bundled starter list with real facility names and town-level coordinates; a later version would load it from the server. A facility on an older record that is not in the list is kept so that record can still be edited. This does not prove that a donation happened: donations remain self-reported, and the blood bank's screening decides.
 - **Location permission.** The system dialog now appears automatically the first time Home opens. The button on Home is only for asking again after a refusal, or for opening Settings after "Don't ask again".
+- **Sessions.** Logging in always starts a session that ends after 15 minutes without using the app, so leaving the app in the background for a short time no longer asks for the password again, while a long absence does. "Keep me signed in" skips the timeout. Every signed-in screen refreshes the timer when it stops.
+- **Self-reported label.** Home tells donors that their donation list is self-reported and that the blood bank confirms eligibility at screening.
 - **Sync on reconnect.** After a failed download, the app downloads again as soon as the network returns while Home is open, and also queues one background check (WorkManager, network required) for when the app is closed.
 
 ## 10e. Building a signed release

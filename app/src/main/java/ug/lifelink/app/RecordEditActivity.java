@@ -32,6 +32,7 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import ug.lifelink.app.util.SessionManager;
 import ug.lifelink.app.data.AppData;
 import ug.lifelink.app.data.Facilities;
 import ug.lifelink.app.location.LocationStore;
@@ -170,6 +171,13 @@ public class RecordEditActivity extends AppCompatActivity {
             // record is only used to confirm that it still exists.
             loadExisting(savedInstanceState == null);
         }
+    }
+
+    @Override
+    protected void onStop() {
+        // Keeps the idle timer fresh while the person works on this screen.
+        new SessionManager(this).touch(userId);
+        super.onStop();
     }
 
     @Override

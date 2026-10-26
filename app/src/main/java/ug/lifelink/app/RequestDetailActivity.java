@@ -13,6 +13,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
+import ug.lifelink.app.util.SessionManager;
 import ug.lifelink.app.model.BloodRecord;
 import ug.lifelink.app.model.UrgentRequest;
 import ug.lifelink.app.ui.StatusLabels;
@@ -87,6 +88,13 @@ public class RequestDetailActivity extends AppCompatActivity {
                     finish();
                 }
             });
+
+    @Override
+    protected void onStop() {
+        // Keeps the idle timer fresh while the person works on this screen.
+        new SessionManager(this).touch(userId);
+        super.onStop();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

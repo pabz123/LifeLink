@@ -13,6 +13,7 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import ug.lifelink.app.util.SessionManager;
 import ug.lifelink.app.alert.AlertNotifier;
 import ug.lifelink.app.alert.RequestChecker;
 import ug.lifelink.app.data.AlertLog;
@@ -68,6 +69,13 @@ public class DemoActivity extends AppCompatActivity {
         findViewById(R.id.btnRunCheck).setOnClickListener(v -> runCheck());
         findViewById(R.id.btnClearDemo).setOnClickListener(v -> clearDemo());
         showState();
+    }
+
+    @Override
+    protected void onStop() {
+        // Keeps the idle timer fresh while the person works on this screen.
+        new SessionManager(this).touch(userId);
+        super.onStop();
     }
 
     @Override

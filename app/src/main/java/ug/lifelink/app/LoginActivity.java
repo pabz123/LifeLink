@@ -247,10 +247,10 @@ public class LoginActivity extends AppCompatActivity {
         }
 
         User user = result.getUser();
+        session.clear(); // drop any earlier person's choice or session first
+        session.startSession(user.getId()); // idle timeout applies unless "Keep me signed in"
         if (remember) {
             session.remember(user.getId());
-        } else {
-            session.clear();
         }
         Toast.makeText(this, getString(R.string.welcome_back, user.getFirstName()),
                 Toast.LENGTH_SHORT).show();
