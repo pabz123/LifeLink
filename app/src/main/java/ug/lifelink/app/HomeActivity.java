@@ -1,6 +1,11 @@
 package ug.lifelink.app;
 
+import android.Manifest;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.Uri;
+import android.provider.Settings;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -19,25 +24,35 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
+import java.text.DateFormat;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import ug.lifelink.app.alert.AlertNotifier;
+import ug.lifelink.app.alert.AlertScheduler;
+import ug.lifelink.app.alert.AlertSettings;
+import ug.lifelink.app.data.AppData;
 import ug.lifelink.app.data.RecordRepository;
+import ug.lifelink.app.data.RequestCache;
 import ug.lifelink.app.data.SampleData;
 import ug.lifelink.app.data.UserRepository;
 import ug.lifelink.app.model.BloodRecord;
+import ug.lifelink.app.location.DeviceLocation;
+import ug.lifelink.app.location.LocationStore;
 import ug.lifelink.app.model.UrgentRequest;
+import ug.lifelink.app.net.RequestFeedClient;
+import ug.lifelink.app.net.RequestFeedParser;
 import ug.lifelink.app.model.User;
 import ug.lifelink.app.ui.ConfirmDialogFragment;
 import ug.lifelink.app.ui.EligibilityRingView;
 import ug.lifelink.app.ui.RecordAdapter;
 import ug.lifelink.app.ui.StatusLabels;
-import ug.lifelink.app.util.BloodCompatibility;
 import ug.lifelink.app.util.BloodGroups;
 import ug.lifelink.app.util.Eligibility;
+import ug.lifelink.app.util.RequestMatcher;
 import ug.lifelink.app.util.SessionManager;
 
 /**
@@ -52,13 +67,17 @@ import ug.lifelink.app.util.SessionManager;
  * Milestone 2: the records come from RecordRepository, a collection the user changes with the
  * add and edit screens (tap a record to edit it, tap Add to create one). Tapping an urgent
  * request opens its details. The three-dot menu holds the app-wide actions. Milestone 3
- * replaces the repository's storage with SQLite and Milestone 4 replaces the urgent requests
- * with the REST API.
+ * replaces the repository's storage with SQLite. Milestone 4 reads the urgent requests from the
+ * live feed, keeps a copy in SQLite for offline use, and works out distances on the phone.
  */
 public class HomeActivity extends AppCompatActivity {
 
     private static final String TAG = "HomeActivity";
     private static final String KEY_CONFIRM_LOGOUT = "confirm_logout";
+    /** The feed is fetched again only when the saved copy is older than this. */
+    /** onResume re-checks the requests only when the last check is older than this. */
+    private static final long RESUME_REBIND_MS = 3000L;
+    private static final long FEED_STALE_MS = 5L * 60 * 1000;
 
     public static final String EXTRA_USER_ID = "ug.lifelink.app.extra.USER_ID";
 
@@ -80,12 +99,23 @@ public class HomeActivity extends AppCompatActivity {
     private TextView tvUrgentHint;
     private LinearLayout llUrgent;
     private TextView tvListHeader;
+    private TextView tvSelfReported;
     private TextView tvEmptyRecords;
     private Button btnAddRecord;
+    private TextView tvFeedStatus;
+    private TextView tvLocationPrompt;
+    private Button btnLocation;
 
     private RecordAdapter adapter;
     private UserRepository users;
-    private final RecordRepository recordStore = RecordRepository.getInstance();
+    private RecordRepository recordStore;
+    private RequestCache requestCache;
+    private LocationStore locationStore;
+    private long lastFeedAttempt;
+    private long lastUrgentBind;
+    /** True after a download failed; the next time the network returns, the feed is fetched at once. */
+    private boolean feedOffline;
+    private ConnectivityManager.NetworkCallback networkCallback;
     private User currentUser;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
 
@@ -96,7 +126,7 @@ public class HomeActivity extends AppCompatActivity {
     private final ActivityResultLauncher<Intent> screenLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(), result -> {
                 if (currentUser != null) {
-                    renderRecords(); // the list may have changed, whatever the result code
+                    refreshRecords(); // the list may have changed, whatever the result code
                 }
                 Intent data = result.getData();
                 if (result.getResultCode() == RESULT_OK && data != null) {
@@ -108,6 +138,19 @@ public class HomeActivity extends AppCompatActivity {
                     }
                 }
             });
+
+    /** Result of the location permission dialog. Granted: refresh with the real position. */
+    private final ActivityResultLauncher<String> locationPermission = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(), granted -> {
+                if (currentUser != null && !currentUser.isHospital()) {
+                    bindUrgentRequests(currentUser);
+                    askNotificationPermissionOnce();
+                }
+            });
+
+    /** Result of the notification permission dialog. A "no" simply means no alerts. */
+    private final ActivityResultLauncher<String> notificationPermission = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(), granted -> { });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -142,7 +185,81 @@ public class HomeActivity extends AppCompatActivity {
                 (requestKey, result) -> logout());
 
         users = new UserRepository(this);
+        recordStore = AppData.records(this);
+        requestCache = new RequestCache(this);
+        locationStore = new LocationStore(this);
         loadUser(userId);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Back from Settings (or another screen): re-check permission and the saved requests.
+        // Skip when the list was bound a moment ago (first launch binds it from onUserLoaded).
+        if (currentUser != null && !currentUser.isHospital()
+                && System.currentTimeMillis() - lastUrgentBind > RESUME_REBIND_MS) {
+            bindUrgentRequests(currentUser);
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        // Session management: coming back after too long away means logging in again.
+        SessionManager session = new SessionManager(this);
+        long id = getIntent().getLongExtra(EXTRA_USER_ID, -1L);
+        if (!session.isSessionValid(id, System.currentTimeMillis())) {
+            session.clear();
+            Toast.makeText(this, R.string.session_expired, Toast.LENGTH_LONG).show();
+            goToLogin();
+            return;
+        }
+        session.touch(id);
+        watchNetwork();
+    }
+
+    @Override
+    protected void onStop() {
+        unwatchNetwork();
+        new SessionManager(this).touch(getIntent().getLongExtra(EXTRA_USER_ID, -1L));
+        super.onStop();
+    }
+
+    /** While Home is on screen: when a connection appears after a failed download, sync at once. */
+    private void watchNetwork() {
+        ConnectivityManager cm = getSystemService(ConnectivityManager.class);
+        if (cm == null || networkCallback != null) {
+            return;
+        }
+        networkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                runOnUiThread(() -> {
+                    if (feedOffline && currentUser != null && !currentUser.isHospital()
+                            && !isFinishing() && !isDestroyed()) {
+                        lastFeedAttempt = 0L; // forces a fresh download
+                        bindUrgentRequests(currentUser);
+                    }
+                });
+            }
+        };
+        try {
+            cm.registerDefaultNetworkCallback(networkCallback);
+        } catch (RuntimeException e) {
+            networkCallback = null; // the periodic job and the next resume still sync
+        }
+    }
+
+    private void unwatchNetwork() {
+        ConnectivityManager cm = getSystemService(ConnectivityManager.class);
+        if (cm != null && networkCallback != null) {
+            try {
+                cm.unregisterNetworkCallback(networkCallback);
+            } catch (RuntimeException e) {
+                Log.w(TAG, "Network callback was not registered", e);
+            }
+        }
+        networkCallback = null;
     }
 
     @Override
@@ -176,27 +293,51 @@ public class HomeActivity extends AppCompatActivity {
         tvUrgentHint = header.findViewById(R.id.tvUrgentHint);
         llUrgent = header.findViewById(R.id.llUrgent);
         tvListHeader = header.findViewById(R.id.tvListHeader);
+        tvSelfReported = header.findViewById(R.id.tvSelfReported);
         tvEmptyRecords = header.findViewById(R.id.tvEmptyRecords);
         btnAddRecord = header.findViewById(R.id.btnAddRecord);
+        tvFeedStatus = header.findViewById(R.id.tvFeedStatus);
+        tvLocationPrompt = header.findViewById(R.id.tvLocationPrompt);
+        btnLocation = header.findViewById(R.id.btnLocation);
     }
 
     // ------------------------------------------------------------------ loading
 
+    /**
+     * Loads the user and their records off the main thread (the database is on disk). New
+     * accounts are given the sample records here, once, before the list is read.
+     */
     private void loadUser(final long userId) {
         worker.execute(() -> {
             User user = null;
+            List<BloodRecord> records = null;
+            boolean failed = false;
             try {
                 user = users.findById(userId);
+                if (user != null) {
+                    recordStore.seedOnce(user.getId(), SampleData.forRole(user.getRole(),
+                            user.getBloodGroup(), user.getId(), System.currentTimeMillis()));
+                    records = recordStore.listFor(user.getId());
+                }
             } catch (RuntimeException e) {
-                Log.e(TAG, "Could not load the user", e);
+                Log.e(TAG, "Could not load the user or their records", e);
+                failed = true;
             }
-            final User result = user;
-            runOnUiThread(() -> onUserLoaded(result));
+            final User loadedUser = user;
+            final List<BloodRecord> loadedRecords = records;
+            final boolean loadFailed = failed;
+            runOnUiThread(() -> onUserLoaded(loadedUser, loadedRecords, loadFailed));
         });
     }
 
-    private void onUserLoaded(User user) {
+    private void onUserLoaded(User user, List<BloodRecord> records, boolean loadFailed) {
         if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        if (loadFailed) {
+            // A database problem is not the same as a missing account: do not sign the user out.
+            Toast.makeText(this, R.string.error_generic, Toast.LENGTH_LONG).show();
+            finish();
             return;
         }
         if (user == null) {
@@ -211,26 +352,59 @@ public class HomeActivity extends AppCompatActivity {
         tvAvatar.setText(initialsOf(user.getFullName()));
         btnAddRecord.setText(user.isHospital() ? R.string.menu_add_request : R.string.menu_add_donation);
 
-        // New accounts start with sample records, once. After that the list is the user's own.
-        recordStore.seedOnce(user.getId(),
-                SampleData.forRole(user.getRole(), user.getBloodGroup(), user.getId(), System.currentTimeMillis()));
-        renderRecords();
+        showRecords(records);
 
         if (user.isHospital()) {
             tvListHeader.setText(R.string.list_header_hospital);
+            tvSelfReported.setVisibility(View.GONE);
             tvUrgentHeader.setVisibility(View.GONE);
             tvUrgentHint.setVisibility(View.GONE);
             llUrgent.setVisibility(View.GONE);
+            tvFeedStatus.setVisibility(View.GONE);
+            hideLocationPrompt();
         } else {
             tvListHeader.setText(R.string.list_header_donor);
+            tvSelfReported.setVisibility(View.VISIBLE);
             bindUrgentRequests(user);
+            AlertScheduler.schedule(this); // background check about every 15 minutes
         }
     }
 
-    /** Reloads this user's records from the repository and refreshes the list and the hero card. */
-    private void renderRecords() {
+    /**
+     * Asks to show notifications, once, on Android 13 and later. Called after the location
+     * question so two permission dialogs never appear together.
+     */
+    private void askNotificationPermissionOnce() {
+        AlertSettings settings = new AlertSettings(this);
+        if (android.os.Build.VERSION.SDK_INT >= 33 && !AlertNotifier.canNotify(this)
+                && !settings.wasNotificationPermissionAsked()) {
+            settings.markNotificationPermissionAsked();
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS);
+        }
+    }
+
+    /** Reloads this user's records from the database (off the main thread) and shows them. */
+    private void refreshRecords() {
+        final long userId = currentUser.getId();
+        worker.execute(() -> {
+            List<BloodRecord> records = null;
+            try {
+                records = recordStore.listFor(userId);
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Could not reload the records", e);
+            }
+            final List<BloodRecord> loaded = records;
+            runOnUiThread(() -> {
+                if (loaded != null && !isFinishing() && !isDestroyed()) {
+                    showRecords(loaded);
+                }
+            });
+        });
+    }
+
+    /** Puts the given records in the list and refreshes the hero card. Main thread only. */
+    private void showRecords(List<BloodRecord> records) {
         final long now = System.currentTimeMillis();
-        List<BloodRecord> records = recordStore.listFor(currentUser.getId());
         adapter.clear();
         adapter.addAll(records);
         tvEmptyRecords.setVisibility(records.isEmpty() ? View.VISIBLE : View.GONE);
@@ -251,10 +425,15 @@ public class HomeActivity extends AppCompatActivity {
         popup.getMenuInflater().inflate(R.menu.menu_home, popup.getMenu());
         popup.getMenu().findItem(R.id.action_add).setTitle(
                 currentUser.isHospital() ? R.string.menu_add_request : R.string.menu_add_donation);
+        popup.getMenu().findItem(R.id.action_demo).setVisible(!currentUser.isHospital());
         popup.setOnMenuItemClickListener(item -> {
             int id = item.getItemId();
             if (id == R.id.action_add) {
                 openRecordForm(-1L);
+                return true;
+            } else if (id == R.id.action_demo) {
+                screenLauncher.launch(new Intent(this, DemoActivity.class)
+                        .putExtra("ug.lifelink.app.extra.USER_ID", currentUser.getId()));
                 return true;
             } else if (id == R.id.action_about) {
                 ConfirmDialogFragment.newInfo(R.string.about_title, R.string.about_message)
@@ -362,25 +541,159 @@ public class HomeActivity extends AppCompatActivity {
 
     // ------------------------------------------------------------------ urgent requests
 
-    /** Shows only the requests this donor's blood can help with, nearest first. */
-    private void bindUrgentRequests(User user) {
+    /**
+     * Shows the requests this donor's blood can help with, most urgent first. Order of work:
+     * show the saved copy straight away (works offline), then refresh from the feed when the
+     * copy is stale, then add distances once a position is known.
+     */
+    private void bindUrgentRequests(final User user) {
+        lastUrgentBind = System.currentTimeMillis();
         tvUrgentHeader.setVisibility(View.VISIBLE);
         llUrgent.setVisibility(View.VISIBLE);
-        llUrgent.removeAllViews();
 
         if (!BloodGroups.isKnown(user.getBloodGroup())) {
+            llUrgent.removeAllViews();
             tvUrgentHint.setText(R.string.urgent_hint_unknown);
+            tvUrgentHint.setVisibility(View.VISIBLE);
+            tvFeedStatus.setVisibility(View.GONE);
+            hideLocationPrompt();
+            return;
+        }
+
+        final boolean refresh = System.currentTimeMillis() - lastFeedAttempt > FEED_STALE_MS;
+        if (refresh) {
+            lastFeedAttempt = System.currentTimeMillis();
+        }
+        worker.execute(() -> {
+            boolean offline = false;
+            int skipped = 0;
+            List<UrgentRequest> saved = null;
+            long fetchedAt = 0L;
+            try {
+                long now = System.currentTimeMillis();
+                if (refresh || requestCache.lastFetchedAt() == 0L
+                        || now - requestCache.lastFetchedAt() > FEED_STALE_MS) {
+                    try {
+                        RequestFeedParser.Result result = RequestFeedClient.fetch();
+                        requestCache.replaceAll(result.requests, now);
+                        skipped = result.skipped;
+                    } catch (java.io.IOException e) {
+                        Log.w(TAG, "Feed not reachable, using the saved copy", e);
+                        offline = true;
+                    }
+                }
+                saved = requestCache.listAll();
+                fetchedAt = requestCache.lastFetchedAt();
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Could not read the saved requests", e);
+            }
+            final List<UrgentRequest> all = saved;
+            final boolean wasOffline = offline;
+            final int bad = skipped;
+            final long at = fetchedAt;
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
+                feedOffline = wasOffline;
+                if (wasOffline) {
+                    // Also ask Android to run one check the moment a connection returns,
+                    // even if the app is closed by then.
+                    AlertScheduler.runWhenOnline(this);
+                }
+                renderUrgent(user, all, at, wasOffline, bad);
+                findPosition(user, all, at, wasOffline, bad);
+            });
+        });
+    }
+
+    /** Asks for a fresh position when allowed; otherwise offers the permission prompt. */
+    private void findPosition(final User user, final List<UrgentRequest> all, final long at,
+                              final boolean offline, final int bad) {
+        if (locationStore.isDemoOn()) {
+            hideLocationPrompt();
+            return;
+        }
+        if (DeviceLocation.hasPermission(this)) {
+            hideLocationPrompt();
+            askNotificationPermissionOnce();
+            DeviceLocation.get(this, location -> {
+                if (location == null || isFinishing() || isDestroyed()) {
+                    return;
+                }
+                locationStore.saveLast(location.getLatitude(), location.getLongitude(),
+                        System.currentTimeMillis());
+                renderUrgent(user, all, at, offline, bad);
+            });
+            return;
+        }
+        if (!locationStore.wasPermissionAsked()) {
+            // First time: show the system dialog straight away. The button below is only for
+            // asking again after a "no", or for opening Settings after "Don't ask again".
+            locationStore.markPermissionAsked();
+            locationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION);
+            return;
+        }
+        showLocationPrompt();
+    }
+
+    private void showLocationPrompt() {
+        final boolean askedBefore = locationStore.wasPermissionAsked();
+        final boolean canAskAgain = androidx.core.app.ActivityCompat
+                .shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_COARSE_LOCATION);
+        // Asked before and no rationale offered means "Don't ask again": only Settings can help.
+        final boolean needsSettings = askedBefore && !canAskAgain;
+        tvLocationPrompt.setText(needsSettings ? R.string.location_denied_hint : R.string.location_prompt);
+        tvLocationPrompt.setVisibility(View.VISIBLE);
+        btnLocation.setText(needsSettings ? R.string.location_open_settings : R.string.location_allow);
+        btnLocation.setVisibility(View.VISIBLE);
+        btnLocation.setOnClickListener(v -> {
+            if (needsSettings) {
+                startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.fromParts("package", getPackageName(), null)));
+            } else {
+                locationStore.markPermissionAsked();
+                locationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION);
+            }
+        });
+    }
+
+    private void hideLocationPrompt() {
+        tvLocationPrompt.setVisibility(View.GONE);
+        btnLocation.setVisibility(View.GONE);
+    }
+
+    /** Matches the saved requests to this donor and draws the rows. Main thread only. */
+    private void renderUrgent(User user, List<UrgentRequest> all, long fetchedAt,
+                              boolean offline, int skipped) {
+        llUrgent.removeAllViews();
+
+        DateFormat time = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
+        String when = fetchedAt > 0 ? time.format(new Date(fetchedAt)) : "";
+        String status;
+        if (fetchedAt == 0L) {
+            status = getString(R.string.feed_never);
+        } else if (offline) {
+            status = getString(R.string.feed_offline, when);
+        } else {
+            status = getString(R.string.feed_updated, when);
+        }
+        if (skipped > 0) {
+            status = status + " " + getString(R.string.feed_skipped, skipped);
+        }
+        tvFeedStatus.setText(status);
+        tvFeedStatus.setVisibility(View.VISIBLE);
+
+        if (all == null || all.isEmpty()) {
+            tvUrgentHint.setText(fetchedAt == 0L ? R.string.urgent_offline_empty : R.string.urgent_none);
             tvUrgentHint.setVisibility(View.VISIBLE);
             return;
         }
 
-        List<UrgentRequest> matched = new ArrayList<>();
-        for (UrgentRequest request : SampleData.urgentRequests()) {
-            if (BloodCompatibility.canDonateTo(user.getBloodGroup(), request.getBloodGroup())) {
-                matched.add(request);
-            }
-        }
-        Collections.sort(matched, (a, b) -> Double.compare(a.getDistanceKm(), b.getDistanceKm()));
+        double[] where = locationStore.effective();
+        List<UrgentRequest> matched = RequestMatcher.match(user.getBloodGroup(), where != null,
+                where == null ? 0 : where[0], where == null ? 0 : where[1],
+                System.currentTimeMillis(), all);
 
         if (matched.isEmpty()) {
             tvUrgentHint.setText(R.string.urgent_none);
@@ -397,10 +710,12 @@ public class HomeActivity extends AppCompatActivity {
 
             String units = getResources().getQuantityString(R.plurals.record_units,
                     request.getUnits(), request.getUnits());
-            String distance = getString(R.string.distance_km, request.getDistanceKm());
+            String distance = request.hasDistance()
+                    ? getString(R.string.distance_km, request.getDistanceKm())
+                    : getString(R.string.distance_unknown);
             ((TextView) row.findViewById(R.id.tvSubtitle))
                     .setText(getString(R.string.urgent_subtitle, units, distance));
-            StatusLabels.apply(this, (TextView) row.findViewById(R.id.tvStatus), request.getStatus());
+            StatusLabels.applyUrgency(this, (TextView) row.findViewById(R.id.tvStatus), request.getUrgency());
 
             row.setOnClickListener(v -> openRequestDetail(request));
             llUrgent.addView(row);
@@ -434,6 +749,7 @@ public class HomeActivity extends AppCompatActivity {
 
     private void logout() {
         new SessionManager(this).clear();
+        AlertScheduler.cancel(this);
         Toast.makeText(this, R.string.logout_done, Toast.LENGTH_SHORT).show();
         goToLogin();
     }

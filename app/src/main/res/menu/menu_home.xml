@@ -5,6 +5,9 @@
         android:id="@+id/action_add"
         android:title="@string/menu_add_donation" />
     <item
+        android:id="@+id/action_demo"
+        android:title="@string/menu_demo" />
+    <item
         android:id="@+id/action_about"
         android:title="@string/menu_about" />
     <item

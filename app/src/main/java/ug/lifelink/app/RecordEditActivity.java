@@ -3,9 +3,13 @@ package ug.lifelink.app;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Filter;
 import android.widget.ImageButton;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -16,13 +20,22 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.datepicker.CalendarConstraints;
 import com.google.android.material.datepicker.DateValidatorPointBackward;
 import com.google.android.material.datepicker.MaterialDatePicker;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
+import ug.lifelink.app.util.SessionManager;
+import ug.lifelink.app.data.AppData;
+import ug.lifelink.app.data.Facilities;
+import ug.lifelink.app.location.LocationStore;
 import ug.lifelink.app.data.RecordRepository;
 import ug.lifelink.app.model.BloodRecord;
 import ug.lifelink.app.ui.ConfirmDialogFragment;
@@ -59,14 +72,21 @@ public class RecordEditActivity extends AppCompatActivity {
     public static final String RESULT_SAVED = "SAVED";
     public static final String RESULT_DELETED = "DELETED";
 
+    private static final String TAG = "RecordEditActivity";
     private static final String STATE_DATE = "state_date";
     private static final String TAG_DATE_PICKER = "date_picker";
     private static final String KEY_CONFIRM_DELETE = "confirm_delete";
     private static final long NO_DATE = Long.MIN_VALUE;
+    private static final int OUTCOME_OK = 0;
+    private static final int OUTCOME_NOT_FOUND = 1;
+    private static final int OUTCOME_ERROR = 2;
 
     private TextView tvScreenTitle;
     private TextInputLayout layoutFacility;
-    private TextInputEditText txtFacility;
+    private MaterialAutoCompleteTextView txtFacility;
+    /** The names offered in the facility dropdown. Only these may be saved. */
+    private final List<String> facilityNames = new ArrayList<>();
+    private ArrayAdapter<String> facilityAdapter;
     private Spinner spinRecordBlood;
     private TextView tvBloodError;
     private TextInputLayout layoutUnits;
@@ -81,7 +101,8 @@ public class RecordEditActivity extends AppCompatActivity {
     private Button btnSave;
     private Button btnDelete;
 
-    private final RecordRepository records = RecordRepository.getInstance();
+    private RecordRepository records;
+    private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("d MMM yyyy", Locale.getDefault());
 
     private long userId;
@@ -90,6 +111,8 @@ public class RecordEditActivity extends AppCompatActivity {
     private String[] bloodCodes;
     private String[] statusCodes;
     private long selectedDate = NO_DATE;
+    /** False while an existing record is still being read from the database. */
+    private boolean ready;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -99,29 +122,20 @@ public class RecordEditActivity extends AppCompatActivity {
         recordId = getIntent().getLongExtra(EXTRA_RECORD_ID, -1L);
         kind = getIntent().getStringExtra(EXTRA_KIND);
 
-        BloodRecord existing = null;
-        if (recordId >= 0 && userId >= 0) {
-            existing = records.get(userId, recordId);
-            if (existing == null) {
-                Toast.makeText(this, R.string.record_not_found, Toast.LENGTH_LONG).show();
-                finish();
-                return;
-            }
-            kind = existing.getKind(); // a stored record keeps its own kind
-        }
         boolean kindOk = BloodRecord.KIND_DONATION.equals(kind) || BloodRecord.KIND_REQUEST.equals(kind);
         if (userId < 0 || !kindOk) {
             finish(); // opened without the data it needs (should not happen)
             return;
         }
 
+        records = AppData.records(this);
         setContentView(R.layout.activity_record_edit);
         bindViews();
         bloodCodes = getResources().getStringArray(R.array.record_blood_group_codes);
         statusCodes = getResources().getStringArray(R.array.request_status_codes);
 
         boolean isDonation = BloodRecord.KIND_DONATION.equals(kind);
-        boolean isNew = existing == null;
+        final boolean isNew = recordId < 0;
         tvScreenTitle.setText(isDonation
                 ? (isNew ? R.string.title_add_donation : R.string.title_edit_donation)
                 : (isNew ? R.string.title_add_request : R.string.title_edit_request));
@@ -131,9 +145,7 @@ public class RecordEditActivity extends AppCompatActivity {
 
         if (savedInstanceState != null) {
             selectedDate = savedInstanceState.getLong(STATE_DATE, NO_DATE);
-        } else if (existing != null) {
-            prefillFrom(existing);
-        } else {
+        } else if (isNew) {
             prefillNew();
         }
         renderDate();
@@ -150,6 +162,56 @@ public class RecordEditActivity extends AppCompatActivity {
 
         getSupportFragmentManager().setFragmentResultListener(KEY_CONFIRM_DELETE, this,
                 (requestKey, result) -> deleteRecord());
+
+        if (isNew) {
+            ready = true;
+        } else {
+            // Editing: read the stored record off the main thread. The form is shown at once and
+            // filled in a moment later. After a rotation the fields restore themselves, so the
+            // record is only used to confirm that it still exists.
+            loadExisting(savedInstanceState == null);
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        // Keeps the idle timer fresh while the person works on this screen.
+        new SessionManager(this).touch(userId);
+        super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        worker.shutdown();
+        super.onDestroy();
+    }
+
+    private void loadExisting(final boolean prefill) {
+        worker.execute(() -> {
+            BloodRecord found = null;
+            try {
+                found = records.get(userId, recordId);
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Could not read the record", e);
+            }
+            final BloodRecord existing = found;
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
+                if (existing == null) {
+                    Toast.makeText(this, R.string.record_not_found, Toast.LENGTH_LONG).show();
+                    finish();
+                    return;
+                }
+                kind = existing.getKind(); // a stored record keeps its own kind
+                if (prefill) {
+                    prefillFrom(existing);
+                    renderDate();
+                }
+                ready = true;
+            });
+        });
     }
 
     @Override
@@ -164,6 +226,7 @@ public class RecordEditActivity extends AppCompatActivity {
         tvScreenTitle = findViewById(R.id.tvScreenTitle);
         layoutFacility = findViewById(R.id.layoutFacility);
         txtFacility = findViewById(R.id.txtFacility);
+        setUpFacilityList();
         spinRecordBlood = findViewById(R.id.spinRecordBlood);
         tvBloodError = findViewById(R.id.tvBloodError);
         layoutUnits = findViewById(R.id.layoutUnits);
@@ -179,10 +242,49 @@ public class RecordEditActivity extends AppCompatActivity {
         btnDelete = findViewById(R.id.btnDelete);
     }
 
+    /** Fills the dropdown with the facilities, nearest first when a position is known. */
+    private void setUpFacilityList() {
+        double[] where = new LocationStore(this).effective();
+        facilityNames.clear();
+        facilityNames.addAll(Facilities.namesNear(where != null,
+                where == null ? 0 : where[0], where == null ? 0 : where[1]));
+        // An adapter that never filters, so the full list is offered after rotation or re-open.
+        facilityAdapter = new ArrayAdapter<String>(this,
+                android.R.layout.simple_dropdown_item_1line, facilityNames) {
+            @Override
+            public Filter getFilter() {
+                return new Filter() {
+                    @Override
+                    protected FilterResults performFiltering(CharSequence constraint) {
+                        FilterResults r = new FilterResults();
+                        r.values = new ArrayList<>(facilityNames);
+                        r.count = facilityNames.size();
+                        return r;
+                    }
+
+                    @Override
+                    protected void publishResults(CharSequence constraint, FilterResults results) {
+                        notifyDataSetChanged();
+                    }
+                };
+            }
+        };
+        txtFacility.setAdapter(facilityAdapter);
+    }
+
+    /** Shows this facility. A name from an older record that is not in the list is kept, so editing works. */
+    private void setFacility(String name) {
+        if (name != null && !name.isEmpty() && !facilityNames.contains(name)) {
+            facilityNames.add(0, name);
+            facilityAdapter.notifyDataSetChanged();
+        }
+        txtFacility.setText(name, false); // false: do not filter the list
+    }
+
     private void prefillNew() {
         String facility = getIntent().getStringExtra(EXTRA_PREFILL_FACILITY);
         if (facility != null) {
-            txtFacility.setText(facility);
+            setFacility(facility);
         }
         selectBloodGroup(getIntent().getStringExtra(EXTRA_DEFAULT_GROUP));
         txtUnits.setText("1");
@@ -190,7 +292,7 @@ public class RecordEditActivity extends AppCompatActivity {
     }
 
     private void prefillFrom(BloodRecord record) {
-        txtFacility.setText(record.getFacility());
+        setFacility(record.getFacility());
         selectBloodGroup(record.getBloodGroup());
         txtUnits.setText(String.valueOf(record.getUnits()));
         txtNote.setText(record.getNote());
@@ -274,6 +376,9 @@ public class RecordEditActivity extends AppCompatActivity {
     // ------------------------------------------------------------------ save and delete
 
     private void attemptSave() {
+        if (!ready) {
+            return; // the stored record is still loading
+        }
         final String facility = textOf(txtFacility).trim();
         final String unitsText = textOf(txtUnits).trim();
         final String note = textOf(txtNote).trim();
@@ -291,6 +396,9 @@ public class RecordEditActivity extends AppCompatActivity {
         View firstInvalid = null;
 
         int facilityError = Validators.facilityError(facility);
+        if (facilityError == 0 && !facilityNames.contains(facility)) {
+            facilityError = R.string.error_facility_pick;
+        }
         if (facilityError != 0) {
             layoutFacility.setError(getString(facilityError));
             firstInvalid = txtFacility;
@@ -334,29 +442,70 @@ public class RecordEditActivity extends AppCompatActivity {
             return;
         }
 
-        try {
-            int units = Integer.parseInt(unitsText);
-            if (recordId < 0) {
-                records.add(userId, kind, bloodGroup, units, facility, status, note, selectedDate, now);
-            } else if (!records.update(userId, recordId, bloodGroup, units, facility, status, note,
-                    selectedDate, now)) {
-                Toast.makeText(this, R.string.record_not_found, Toast.LENGTH_LONG).show();
-                return;
+        final int units = Integer.parseInt(unitsText);
+        final long date = selectedDate;
+        setBusy(true);
+        worker.execute(() -> {
+            int outcome = OUTCOME_OK;
+            try {
+                if (recordId < 0) {
+                    records.add(userId, kind, bloodGroup, units, facility, status, note, date, now);
+                } else if (!records.update(userId, recordId, bloodGroup, units, facility, status,
+                        note, date, now)) {
+                    outcome = OUTCOME_NOT_FOUND;
+                }
+            } catch (IllegalArgumentException e) {
+                // The repository re-checks the rules. Reaching this means a screen check was missed.
+                Log.w(TAG, "Repository rejected a value the screen accepted", e);
+                outcome = OUTCOME_ERROR;
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Could not save the record", e);
+                outcome = OUTCOME_ERROR;
             }
-        } catch (IllegalArgumentException e) {
-            // The repository re-checks the rules. Reaching this means a screen check was missed.
-            Toast.makeText(this, R.string.error_generic, Toast.LENGTH_LONG).show();
-            return;
-        }
-        finishWith(RESULT_SAVED);
+            final int result = outcome;
+            runOnUiThread(() -> onWriteFinished(result, RESULT_SAVED));
+        });
     }
 
     private void deleteRecord() {
-        if (records.delete(userId, recordId)) {
-            finishWith(RESULT_DELETED);
-        } else {
-            Toast.makeText(this, R.string.record_not_found, Toast.LENGTH_LONG).show();
+        if (!ready) {
+            return;
         }
+        setBusy(true);
+        worker.execute(() -> {
+            int outcome = OUTCOME_OK;
+            try {
+                if (!records.delete(userId, recordId)) {
+                    outcome = OUTCOME_NOT_FOUND;
+                }
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Could not delete the record", e);
+                outcome = OUTCOME_ERROR;
+            }
+            final int result = outcome;
+            runOnUiThread(() -> onWriteFinished(result, RESULT_DELETED));
+        });
+    }
+
+    /** Back on the main thread after a save or delete. */
+    private void onWriteFinished(int outcome, String resultIfOk) {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        setBusy(false);
+        if (outcome == OUTCOME_OK) {
+            finishWith(resultIfOk);
+        } else if (outcome == OUTCOME_NOT_FOUND) {
+            Toast.makeText(this, R.string.record_not_found, Toast.LENGTH_LONG).show();
+        } else {
+            Toast.makeText(this, R.string.error_generic, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** While the database is being written, the buttons are off so a double tap cannot save twice. */
+    private void setBusy(boolean busy) {
+        btnSave.setEnabled(!busy);
+        btnDelete.setEnabled(!busy);
     }
 
     private void finishWith(String result) {
@@ -367,7 +516,7 @@ public class RecordEditActivity extends AppCompatActivity {
 
     // ------------------------------------------------------------------ helpers
 
-    private void clearErrorOnEdit(TextInputEditText field, final TextInputLayout layout) {
+    private void clearErrorOnEdit(EditText field, final TextInputLayout layout) {
         field.addTextChangedListener(new SimpleTextWatcher() {
             @Override
             public void afterTextChanged(Editable s) {
@@ -376,7 +525,7 @@ public class RecordEditActivity extends AppCompatActivity {
         });
     }
 
-    private static String textOf(TextInputEditText field) {
+    private static String textOf(EditText field) {
         return field.getText() == null ? "" : field.getText().toString();
     }
 }

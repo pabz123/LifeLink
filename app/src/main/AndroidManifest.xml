@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- No permissions are needed yet. Later milestones add only what they use:
-         INTERNET and ACCESS_COARSE_LOCATION and POST_NOTIFICATIONS (M4). -->
+    <!-- INTERNET: read the public request feed over HTTPS.
+         ACCESS_COARSE_LOCATION: approximate position only, used on the phone to compute distances.
+         Fine location and background location are deliberately not requested. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- ACCESS_NETWORK_STATE: notice when the connection returns, to sync at once. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- POST_NOTIFICATIONS: urgent request alerts (asked once, Android 13 and later). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
 
     <application
         android:allowBackup="false"
@@ -45,6 +53,10 @@
 
         <activity
             android:name=".RequestDetailActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".DemoActivity"
             android:exported="false" />
 
         <activity

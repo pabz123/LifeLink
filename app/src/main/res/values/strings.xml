@@ -103,9 +103,51 @@
     <string name="status_hospital_title">Open blood requests</string>
     <string name="status_hospital_detail">%1$d requests are waiting for donors.</string>
 
+    <string name="title_demo">Demo mode</string>
+    <string name="demo_intro">For showing LifeLink without travelling. Pick a pretend place, post a test request about 3 km from it, then run the alert check. Test requests exist only on this phone.</string>
+    <string name="demo_place_label">Pretend place</string>
+    <string name="demo_set_place">Use this pretend location</string>
+    <string name="demo_post_test">Post a test request nearby</string>
+    <string name="demo_run_check">Run alert check now</string>
+    <string name="demo_clear">Clear demo</string>
+    <string name="demo_state_on">Pretending to be in %1$s.</string>
+    <string name="demo_state_off">Using your real location.</string>
+    <string name="demo_need_place">Choose a pretend place first, or allow location on Home.</string>
+    <string name="demo_posted">Test request posted for blood group %1$s.</string>
+    <string name="demo_notifications_off">Notifications are off for LifeLink. Turn them on in the phone settings to see the alert.</string>
+    <string name="demo_alerts_none">No new alert. Post a test request first, or clear the demo to repeat.</string>
+    <plurals name="demo_alerts_sent">
+        <item quantity="one">%d alert sent. Pull down the notification shade.</item>
+        <item quantity="other">%d alerts sent. Pull down the notification shade.</item>
+    </plurals>
+    <string name="demo_cleared">Demo cleared. Your real location is used again.</string>
+    <string name="demo_facility">Demo Hospital (test)</string>
+    <string name="demo_note">Test request created in Demo mode</string>
+    <string name="alert_channel_name">Urgent blood requests</string>
+    <string name="alert_channel_description">Alerts about verified urgent requests near you</string>
+    <string name="alert_title_critical">Critical blood request near you</string>
+    <string name="alert_title_urgent">Urgent blood request near you</string>
+    <string name="alert_text">%1$s needed at %2$s, %3$.1f km away. Tap to open LifeLink.</string>
+    <string name="self_reported_note">Self-reported: you enter these yourself. The blood bank confirms your eligibility when you donate.</string>
+    <string name="session_expired">You were signed out after 15 minutes away. Please log in again.</string>
     <string name="urgent_header">Urgent requests near you</string>
     <string name="urgent_hint_unknown">Your blood group is not confirmed yet, so LifeLink cannot match you to a request. Donate at a blood bank to confirm it, then update your profile.</string>
-    <string name="urgent_none">No requests match your blood group right now.</string>
+    <string name="urgent_none">No requests match your blood group near you right now.</string>
+    <string name="urgent_offline_empty">No requests saved on this phone yet. Connect to the internet once to load them.</string>
+    <string name="urgency_critical">Critical</string>
+    <string name="urgency_urgent">Urgent</string>
+    <string name="urgency_routine">Routine</string>
+    <string name="request_verified">Verified hospital</string>
+    <string name="request_not_verified">Not yet verified</string>
+    <string name="distance_unknown">Distance unknown</string>
+    <string name="feed_updated">Updated %1$s</string>
+    <string name="feed_never">Not updated yet</string>
+    <string name="feed_offline">Offline. Showing requests saved at %1$s.</string>
+    <string name="feed_skipped">%1$d invalid entries were ignored.</string>
+    <string name="location_prompt">Allow approximate location to see how far each request is. Your location stays on this phone.</string>
+    <string name="location_allow">Allow location</string>
+    <string name="location_open_settings">Open settings</string>
+    <string name="location_denied_hint">Location is off, so every matching request is shown without distances.</string>
     <string name="urgent_subtitle">%1$s, %2$s</string>
     <string name="distance_km">%1$.1f km away</string>
 
@@ -130,6 +172,7 @@
     <string name="content_back">Back</string>
     <string name="menu_add_donation">Add a donation</string>
     <string name="menu_add_request">Add a blood request</string>
+    <string name="menu_demo">Demo mode</string>
     <string name="menu_about">About LifeLink</string>
     <string name="action_add">Add</string>
     <string name="action_cancel">Cancel</string>
@@ -140,7 +183,7 @@
     <string name="logout_confirm_title">Log out?</string>
     <string name="logout_confirm_message">You will need to log in again to see your records.</string>
     <string name="about_title">About LifeLink</string>
-    <string name="about_message">LifeLink Uganda connects blood donors with hospitals and blood banks, so urgent needs reach eligible donors quickly.\n\nThis is a coursework build. Your records are kept in the app only while it runs, and the urgent requests shown are samples.</string>
+    <string name="about_message">LifeLink Uganda connects blood donors with hospitals and blood banks, so urgent needs reach eligible donors quickly.\n\nThis is a coursework build. Your records are stored on this phone. Urgent requests are read from the LifeLink feed and saved for offline use; your location is used only on this phone to work out distances.</string>
     <string name="delete_confirm_title">Delete this record?</string>
     <string name="delete_confirm_message">This cannot be undone.</string>
 
@@ -150,6 +193,8 @@
     <string name="title_edit_donation">Edit donation</string>
     <string name="title_edit_request">Edit blood request</string>
     <string name="hint_facility">Hospital or blood bank</string>
+    <string name="helper_facility">Choose from the list. The nearest are shown first when your location is known.</string>
+    <string name="error_facility_pick">Choose a hospital or blood bank from the list.</string>
     <string name="hint_units">Units (1 to 20)</string>
     <string name="hint_note">Note (optional)</string>
     <string name="label_record_blood_group">Blood group</string>

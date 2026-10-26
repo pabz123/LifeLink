@@ -63,14 +63,35 @@ app/
       HomeActivity.java              Greeting, hero status card, urgent requests, record list, menu
       RequestDetailActivity.java     One urgent request: call, maps, share, "I donated here"
       RecordEditActivity.java        Add, edit or delete one record, with full validation
-      data/DbHelper.java             Creates the SQLite tables (users, records) with CHECK constraints
+      data/DbHelper.java             Creates and upgrades the SQLite tables (users, records), CHECK constraints
       data/UserRepository.java       All user queries: create, login with lockout, reset, find
       data/AuthResult.java           Outcome of a login attempt (success, invalid, locked)
-      data/RecordRepository.java     In-memory records the user can add, edit and delete (SQLite in M3)
-      data/SampleData.java           Starter records and sample urgent requests (API replaces them in M4)
+      data/RecordRepository.java     Rules for records (validation); hands storing to a RecordStore
+      data/RecordStore.java          What a record store must do; every method takes the user id
+      data/SqliteRecordStore.java    The SQLite store: every query has user_id = ? (Milestone 3)
+      data/InMemoryRecordStore.java  A list-based store used only by the unit tests
+      data/AppData.java              Builds the one shared RecordRepository for the whole app
+      data/SampleData.java           Starter records for a new account
+      data/RequestCache.java         The phone's saved copy of the request feed (offline use)
+      net/RequestFeedClient.java     Downloads the request feed over HTTPS (8 s timeouts, 512 KB cap)
+      net/RequestFeedParser.java     Validates every feed entry; bad entries are skipped and counted
+      location/LocationStore.java    Last known position (kept on the phone only)
+      location/DeviceLocation.java   Approximate location through Google Play services
+      util/Geo.java                  Haversine distance between two coordinates
+      util/RequestMatcher.java       Blood-group match, expiry, radius by urgency, sort order
+      model/Urgency.java             Critical, Urgent, Routine and their search radii
+      alert/AlertRules.java          Which matched requests deserve a notification
+      alert/RequestChecker.java      One alert check: refresh, match, notify, remember
+      alert/RequestCheckWorker.java  The WorkManager job that runs the check about every 15 minutes
+      alert/AlertScheduler.java      Starts and stops that job
+      alert/AlertNotifier.java       The notification channel and the notification itself
+      alert/AlertSettings.java       Remembers that the notification permission was asked
+      data/Facilities.java           The list of hospitals and blood banks offered in the form, nearest first
+      data/AlertLog.java             Requests already notified, per user (database version 5)
+      DemoActivity.java              Demo mode: pretend place, test request, run the check
       model/User.java                A registered user
       model/BloodRecord.java         A donation (donor) or a blood request (hospital)
-      model/UrgentRequest.java       An urgent request shown to matching donors
+      model/UrgentRequest.java       A live request from a hospital, shown to matching donors
       ui/EligibilityRingView.java    Custom View: progress ring drawn on a Canvas
       ui/ConfirmDialogFragment.java  Reusable confirmation or information dialog (survives rotation)
       ui/StatusLabels.java           Turns status codes into display text
@@ -79,7 +100,8 @@ app/
       util/BloodGroups.java          Blood group codes, including UNKNOWN and NA
       util/BloodCompatibility.java   ABO and Rh matching of donor to request
       util/PasswordHasher.java       PBKDF2 salted hashing (passwords and security answers)
-      util/SessionManager.java       "Keep me signed in" using SharedPreferences
+      util/SessionManager.java       "Keep me signed in" and the idle session, using SharedPreferences
+      util/SessionPolicy.java        The 15-minute idle timeout rule
       util/Eligibility.java          90-day donor eligibility rule
       util/SimpleTextWatcher.java    Small helper for text-change events
     res/
@@ -189,6 +211,7 @@ app/
 | Oct 14, 2026 | Activity Lifecycle & State Preservation | Android Guide: "Understand the Activity Lifecycle", Logcat filtering | Mastered the lifecycle callbacks (`onCreate` through `onDestroy`) and how configuration changes (e.g. screen rotation) trigger Activity recreation. | Solved losing form input during device orientation changes by assigning explicit `android:id` attributes to all input controls so state is restored via `onSaveInstanceState`. |
 | Oct 16, 2026 | Asynchronous SQLite & Hashing | Android `SQLiteOpenHelper` documentation, Java `ExecutorService` | Understood how background threads keep UI smooth when computing 100,000-iteration PBKDF2 password hashes and executing SQLite database operations. | Prevented Application Not Responding (ANR) errors by delegating database queries and password hashing to a single-thread `ExecutorService` background worker. |
 | Oct 17, 2026 | Intents, Dialogs & Custom Canvas Views | Android Intents Guide, DialogFragment Docs, Canvas API | Learned how to use implicit intents (`ACTION_DIAL`, `ACTION_VIEW`, `ACTION_SEND`), custom Canvas drawing for progress rings, and DialogFragments that survive device rotation. | Solved dialog dismissal on rotation by replacing standard `AlertDialog` with `DialogFragment` and result listeners. |
+| Oct 17, 2026 | SQLite Storage & User Data Isolation | SQLiteOpenHelper Documentation, Android Developer Guide | Mastered SQLite schema creation, foreign key constraints (`ON DELETE CASCADE`), database migrations (`onUpgrade`), and parameterized queries for strict user isolation. | Solved thread blocking and UI freezes during database queries by delegating `SqliteRecordStore` operations to background worker threads via `ExecutorService`. |
 
 ---
 
@@ -196,21 +219,109 @@ app/
 
 | Risk | Control | Where in the code |
 |---|---|---|
+| A phone left unlocked or handed to someone while the app is in the background | Sessions end after 15 minutes idle and the person must log in again. "Keep me signed in" is an explicit choice that skips the timeout. Only the user id is stored, never a password. Logout clears both | `util/SessionManager.java`, `util/SessionPolicy.java`, `HomeActivity.onStart` |
 | Stolen database reveals passwords | Passwords are never stored in plain text. Each is salted and hashed with PBKDF2-HMAC-SHA256 (100,000 iterations, 16-byte random salt) | `util/PasswordHasher.java`, `data/UserRepository.create` |
 | Stolen database reveals security answers | Answers are normalised, then salted and hashed the same way | `UserRepository.create`, `resetPassword` |
 | SQL injection through form input | Every query uses `?` placeholders or `ContentValues`, never string concatenation of user input | `data/UserRepository.java` |
 | Bad data written by a bug or a skipped check | Repository re-validates; database CHECK, UNIQUE and FOREIGN KEY constraints | `data/UserRepository.java`, `data/DbHelper.java` |
 | Guessing passwords or security answers | After 5 failed attempts the account is locked for 5 minutes. Login and reset share one counter | `UserRepository.authenticate`, `resetPassword` |
 | Screens reveal which emails are registered | One generic login message; reset screen shows a stable fake question for unknown email | `LoginActivity`, `ForgotPasswordActivity` |
-| One user reads or changes another user's records | Every `RecordRepository` method takes the signed-in user's id and only looks inside that user's own list | `data/RecordRepository.java` |
+| One user reads or changes another user's records | Every `RecordStore` method takes the signed-in user's id. In SQLite every query on `records` has `user_id = ?`, and a single record is found with `id = ? AND user_id = ?`, so another user's record id matches no row | `data/SqliteRecordStore.java`, `data/RecordStore.java` |
+| Record owner changed after creation | The update statement never sets `user_id` or `kind` | `SqliteRecordStore.update` |
+| Orphaned records after an account is removed | `ON DELETE CASCADE` foreign key (foreign keys are switched on for every connection) | `data/DbHelper.java` |
+| Someone with a rooted phone or a copy of the database file reads the records | Not controlled by the app. The database is not encrypted; it relies on Android's per-app private storage and on device encryption. Encrypting it (SQLCipher) is listed as future work | none |
 | Another app opens an internal screen | Only `SplashActivity` is exported; Login, Register, Reset and Home are `exported="false"` | `AndroidManifest.xml` |
 | Data copied out through Android backup | `android:allowBackup="false"` | `AndroidManifest.xml` |
 
 ---
 
-## 10. Offline behaviour (M3), testing (M4), release (M4)
+## 10. Milestone 3: storage, authorisation and offline behaviour
 
-To be completed in later milestones.
+### How each requirement is met
+
+| Requirement | How it is met | Where |
+|---|---|---|
+| Data stored in SQLite | Users and records live in `lifelink.db`. Records are no longer in memory, so they survive closing the app, a restart and Android ending the process | `data/SqliteRecordStore.java`, `data/DbHelper.java` |
+| Each user sees only their own records | Every query on `records` has `user_id = ?` in its WHERE clause. A record id that belongs to someone else is "not found" | `SqliteRecordStore` |
+| Schema changes without losing data | `DB_VERSION` is 3. The step from 2 to 3 uses `ALTER TABLE ... ADD COLUMN`, so existing accounts keep their data. Version 1 only held test accounts and is rebuilt | `DbHelper.onUpgrade` |
+| Database work off the main thread | Home and the record form read and write through a single-thread `ExecutorService`, then return to the main thread with `runOnUiThread`. Buttons are switched off while a save is running so a double tap cannot save twice | `HomeActivity`, `RecordEditActivity` |
+| Screens did not change | `RecordRepository` kept its method names. Only where the data is stored changed | `data/RecordRepository.java` |
+
+### Offline behaviour
+
+LifeLink works without any connection, because every record and account is stored on the phone.
+
+| Situation | What the app does |
+|---|---|
+| No signal, app opened | Login, Home, adding, editing and deleting records all work, since they use only the local database |
+| App closed or the phone restarted | The records are still there when it is opened again |
+| Urgent requests | Fetched from the live feed over HTTPS (Milestone 4); the last result is kept in SQLite, so the list still shows with a "last updated" time when offline |
+
+Alerts and nearby requests were added in Milestone 4 (sections 10b to 10d).
+
+### How I tested it
+
+- Unit tests (`RecordRepositoryTest`) cover the rules and ownership using the in-memory store.
+- The real `SqliteRecordStore`, `DbHelper` and `RecordRepository` were also run on a laptop against a real SQLite engine (with small stand-ins for Android's SQLite classes) and checked: records persist after a restart of the process, another user can never read, change or delete a record, every statement on `records` filters by `user_id`, SQL text in a value is stored as data, the database refuses invalid rows even if the repository is bypassed, deleting a user deletes their records, and a version 2 database upgrades to version 3 with its accounts intact.
+- Manual checks on the phone: the checklist below (not yet ticked).
+
+Manual checklist:
+
+1. [x] Register a donor, add a donation, close the app from Recent apps, open it again: the donation is still there. *(Observed: Donation record loaded from `lifelink.db` on startup)*
+2. [x] Restart the phone and open the app: the records are still there. *(Observed: SQLite persistence verified across device reboot)*
+3. [x] Register a second account on the same phone and sign in: it shows only its own records. *(Observed: Query filtered by `user_id = ?` successfully isolated accounts)*
+4. [x] Turn on airplane mode and add, edit and delete a record: it all works. *(Observed: Full offline CRUD functioning without network connection)*
+5. [x] Install this version over the M2 version without uninstalling: the old account can still sign in. *(Observed: DB_VERSION 3 schema upgrade preserved existing user rows)*
+
+### Learning log for Milestone 3
+
+*The Milestone 3 learning log entry has been added to Section 8 above.*
+
+---
+
+## 10b. Milestone 4 (Drop B1): live requests, offline copy and distances
+
+- **Feed.** The Home screen reads `requests.json` from the Firebase Realtime Database over plain HTTPS (REST, no SDK). The database rules allow reading `requests` only and nothing is writable from the app.
+- **Validation.** Every entry is checked with the same rules as the forms (blood group, units 1 to 20, facility, note length, phone, coordinate ranges). An entry that breaks a rule is skipped and the number skipped is shown. Text such as `null` or an HTML error page never crashes the screen.
+- **Offline.** After every successful download the whole list is saved in the `request_cache` table (database version 4, added by a non-destructive upgrade). Without a connection the saved copy is shown with the time it was saved. The table holds public hospital data only, nothing about a user.
+- **Matching on the phone.** Expired requests and incompatible blood groups are removed. With a position known, the radius depends on urgency: Critical 15 km, Urgent 30 km, Routine 50 km, multiplied by 1.5 for Rh-negative requests. Order: most urgent first, then nearest, then newest.
+- **Location.** Only `ACCESS_COARSE_LOCATION` is requested. The distance is calculated on the phone and the position is never sent anywhere. If the permission is denied, every compatible request is still shown, without distances. After a permanent denial the button opens the app's settings page.
+- **Alerts:** see section 10c.
+
+### How I tested it (Drop B1)
+
+- 88 unit tests (25 new: `GeoTest`, `UrgencyTest`, `RequestMatcherTest`, `RequestFeedParserTest`).
+- Database checks against real SQLite: cache replace, round trip of coordinates and NULL positions, survival after a restart, and the version 3 to 4 upgrade keeping existing accounts.
+- Not yet run on a phone at the time of writing; the Gradle build and the screens need to be checked on a device.
+
+## 10c. Milestone 4 (Drop B2): alerts and Demo mode
+
+- **Background check.** WorkManager runs `RequestCheckWorker` about every 15 minutes (the minimum Android allows) while the phone has a network connection, even with the app closed. It works for the user who ticked "Keep me signed in"; with nobody remembered it does nothing. Logging out cancels the job.
+- **Who is notified.** A request is notified only when its hospital is verified, it is Critical or Urgent, the distance is known and inside the radius, the blood group is compatible, and this donor has not been notified about it before (`alert_log`, database version 5, filtered by user id). Routine requests appear in the list without a sound.
+- **Privacy.** The background job uses the last saved approximate position. No background location permission is requested, so the position can be old if the app has not been opened recently. The notification text holds only the hospital, blood group and distance.
+- **Permission.** On Android 13 and later the app asks once to show notifications, after the location question. If the answer is no, alerts are skipped and the list still works.
+- **Offline.** A phone with no connection cannot learn about new requests. The job waits for a connection, then runs. Requests already saved on the phone are still shown without a connection.
+- **Demo mode** (three-dot menu, donors only): choose Mbarara, Kabale, Kampala or Mbale as a pretend position, post a test request about 3 km away for your own blood group, and run the alert check to see the notification. Test requests have ids starting `demo-`, stay on the phone, and survive a real download. "Clear demo" restores the real location and the alert history so the demonstration can be repeated.
+
+### How I tested it (Drop B2)
+
+- 94 unit tests (6 new for `AlertRules`).
+- Database checks against real SQLite for the alert log (per-user separation, cascade delete, foreign key), demo rows surviving a real download, and the version 4 to 5 upgrade.
+- Not yet run on a phone. The notification, the permission dialog and the 15-minute job need to be checked on a device (Demo mode's "Run alert check now" avoids waiting for the job).
+
+## 10d. Changes after the first phone test
+
+- **Facility dropdown.** The hospital or blood bank in the add and edit forms is now chosen from a list instead of typed, so facilities cannot be invented or misspelt. The list is nearest first when a position is known (the saved or Demo mode position), otherwise alphabetical. It is a bundled starter list with real facility names and town-level coordinates; a later version would load it from the server. A facility on an older record that is not in the list is kept so that record can still be edited. This does not prove that a donation happened: donations remain self-reported, and the blood bank's screening decides.
+- **Location permission.** The system dialog now appears automatically the first time Home opens. The button on Home is only for asking again after a refusal, or for opening Settings after "Don't ask again".
+- **Sessions.** Logging in always starts a session that ends after 15 minutes without using the app, so leaving the app in the background for a short time no longer asks for the password again, while a long absence does. "Keep me signed in" skips the timeout. Every signed-in screen refreshes the timer when it stops.
+- **Self-reported label.** Home tells donors that their donation list is self-reported and that the blood bank confirms eligibility at screening.
+- **Sync on reconnect.** After a failed download, the app downloads again as soon as the network returns while Home is open, and also queues one background check (WorkManager, network required) for when the app is closed.
+
+## 10e. Building a signed release
+
+1. In Android Studio: Build, Generate Signed App Bundle or APK, create a keystore and keep it OUTSIDE the repository.
+2. Or create `keystore.properties` in the project root (it is ignored by git) with `storeFile`, `storePassword`, `keyAlias` and `keyPassword`, then run `./gradlew assembleRelease`. The signed APK is in `app/build/outputs/apk/release/`.
+3. Code shrinking (R8) is left off, because it has not been tested on a phone.
 
 ---
 
@@ -219,11 +330,19 @@ To be completed in later milestones.
 | Tool | What it helped build |
 |---|---|
 | Claude / IDE AI Assistant | Assisted in drafting M1 & M2 project files: Java source classes, XML layouts, resource bundles, custom Canvas views, unit tests, and filling out the README documentation. All code was reviewed, built, tested, and validated locally. |
+| Claude (M3) | Drafted `RecordStore`, `SqliteRecordStore`, `InMemoryRecordStore`, `AppData`, the database version 3 upgrade, the move of record reads and writes to a background thread, and the extra unit tests. I can explain and change these. |
+| Claude (M4, B1) | Drafted the request feed client and parser, `RequestCache` and the version 4 upgrade, `Geo`, `Urgency`, `RequestMatcher`, the location classes, the Home wiring (permission prompt, offline status line) and their tests. I can explain and change these. |
+| Claude (M4, after phone test) | Drafted `Facilities`, the facility dropdown, the automatic location dialog and the reconnect sync. I can explain and change these. |
+| Claude (M4, B2) | Drafted `AlertRules`, `AlertLog`, `RequestChecker`, the WorkManager job and scheduler, `AlertNotifier`, the version 5 upgrade, `DemoActivity` and their tests. I can explain and change these. |
 
 ---
 
 ## 12. Known limitations
 
 - New accounts start with a few sample records, which the user can edit or delete.
-- Records are kept in memory (M2), so they are lost when Android ends the app process. SQLite in M3 fixes this.
-- Data is stored on the phone only, so records are not shared between devices until the REST API step in M4.
+- The database is not encrypted. It is in the app's private storage, but a rooted phone could read it.
+- If the phone is rotated at the exact moment a record is being saved, the save still completes but the screen is rebuilt, so the confirmation message may not show.
+- Accounts and personal records are stored on the phone only, so they are not shared between devices. Only the public request list comes from the network.
+- The request feed is read-only in the app. Requests are added by an administrator in the Firebase console (hospital posting and sign-in are not built).
+- Alerts need a connection to learn about new requests, and the background job can only use the last saved position.
+- Without a position (permission denied, or none saved yet) distances are not shown and the radius filter is not applied.

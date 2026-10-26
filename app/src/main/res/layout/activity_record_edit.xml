@@ -50,20 +50,21 @@
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/layoutFacility"
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/space_m"
                 android:hint="@string/hint_facility"
-                app:errorEnabled="true">
+                app:errorEnabled="true"
+                app:helperText="@string/helper_facility">
 
-                <com.google.android.material.textfield.TextInputEditText
+                <!-- Choose-only dropdown: inputType none, so a facility cannot be typed in. -->
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
                     android:id="@+id/txtFacility"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:imeOptions="actionNext"
-                    android:inputType="textCapWords"
-                    android:maxLength="80"
+                    android:freezesText="true"
+                    android:inputType="none"
                     android:maxLines="1" />
             </com.google.android.material.textfield.TextInputLayout>
 
