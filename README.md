@@ -86,6 +86,7 @@ app/
       alert/AlertScheduler.java      Starts and stops that job
       alert/AlertNotifier.java       The notification channel and the notification itself
       alert/AlertSettings.java       Remembers that the notification permission was asked
+      data/Facilities.java           The list of hospitals and blood banks offered in the form, nearest first
       data/AlertLog.java             Requests already notified, per user (database version 5)
       DemoActivity.java              Demo mode: pretend place, test request, run the check
       model/User.java                A registered user
@@ -306,6 +307,12 @@ Manual checklist:
 - Database checks against real SQLite for the alert log (per-user separation, cascade delete, foreign key), demo rows surviving a real download, and the version 4 to 5 upgrade.
 - Not yet run on a phone. The notification, the permission dialog and the 15-minute job need to be checked on a device (Demo mode's "Run alert check now" avoids waiting for the job).
 
+## 10d. Changes after the first phone test
+
+- **Facility dropdown.** The hospital or blood bank in the add and edit forms is now chosen from a list instead of typed, so facilities cannot be invented or misspelt. The list is nearest first when a position is known (the saved or Demo mode position), otherwise alphabetical. It is a bundled starter list with real facility names and town-level coordinates; a later version would load it from the server. A facility on an older record that is not in the list is kept so that record can still be edited. This does not prove that a donation happened: donations remain self-reported, and the blood bank's screening decides.
+- **Location permission.** The system dialog now appears automatically the first time Home opens. The button on Home is only for asking again after a refusal, or for opening Settings after "Don't ask again".
+- **Sync on reconnect.** After a failed download, the app downloads again as soon as the network returns while Home is open, and also queues one background check (WorkManager, network required) for when the app is closed.
+
 ---
 
 ## 11. AI tools used
@@ -315,6 +322,7 @@ Manual checklist:
 | Claude / IDE AI Assistant | Assisted in drafting M1 & M2 project files: Java source classes, XML layouts, resource bundles, custom Canvas views, unit tests, and filling out the README documentation. All code was reviewed, built, tested, and validated locally. |
 | Claude (M3) | Drafted `RecordStore`, `SqliteRecordStore`, `InMemoryRecordStore`, `AppData`, the database version 3 upgrade, the move of record reads and writes to a background thread, and the extra unit tests. I can explain and change these. |
 | Claude (M4, B1) | Drafted the request feed client and parser, `RequestCache` and the version 4 upgrade, `Geo`, `Urgency`, `RequestMatcher`, the location classes, the Home wiring (permission prompt, offline status line) and their tests. I can explain and change these. |
+| Claude (M4, after phone test) | Drafted `Facilities`, the facility dropdown, the automatic location dialog and the reconnect sync. I can explain and change these. |
 | Claude (M4, B2) | Drafted `AlertRules`, `AlertLog`, `RequestChecker`, the WorkManager job and scheduler, `AlertNotifier`, the version 5 upgrade, `DemoActivity` and their tests. I can explain and change these. |
 
 ---

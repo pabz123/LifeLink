@@ -2,6 +2,8 @@ package ug.lifelink.app;
 
 import android.Manifest;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.Network;
 import android.net.Uri;
 import android.provider.Settings;
 import android.os.Bundle;
@@ -107,6 +109,9 @@ public class HomeActivity extends AppCompatActivity {
     private RequestCache requestCache;
     private LocationStore locationStore;
     private long lastFeedAttempt;
+    /** True after a download failed; the next time the network returns, the feed is fetched at once. */
+    private boolean feedOffline;
+    private ConnectivityManager.NetworkCallback networkCallback;
     private User currentUser;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
 
@@ -189,6 +194,55 @@ public class HomeActivity extends AppCompatActivity {
         if (currentUser != null && !currentUser.isHospital()) {
             bindUrgentRequests(currentUser);
         }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        watchNetwork();
+    }
+
+    @Override
+    protected void onStop() {
+        unwatchNetwork();
+        super.onStop();
+    }
+
+    /** While Home is on screen: when a connection appears after a failed download, sync at once. */
+    private void watchNetwork() {
+        ConnectivityManager cm = getSystemService(ConnectivityManager.class);
+        if (cm == null || networkCallback != null) {
+            return;
+        }
+        networkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                runOnUiThread(() -> {
+                    if (feedOffline && currentUser != null && !currentUser.isHospital()
+                            && !isFinishing() && !isDestroyed()) {
+                        lastFeedAttempt = 0L; // forces a fresh download
+                        bindUrgentRequests(currentUser);
+                    }
+                });
+            }
+        };
+        try {
+            cm.registerDefaultNetworkCallback(networkCallback);
+        } catch (RuntimeException e) {
+            networkCallback = null; // the periodic job and the next resume still sync
+        }
+    }
+
+    private void unwatchNetwork() {
+        ConnectivityManager cm = getSystemService(ConnectivityManager.class);
+        if (cm != null && networkCallback != null) {
+            try {
+                cm.unregisterNetworkCallback(networkCallback);
+            } catch (RuntimeException e) {
+                Log.w(TAG, "Network callback was not registered", e);
+            }
+        }
+        networkCallback = null;
     }
 
     @Override
@@ -520,6 +574,12 @@ public class HomeActivity extends AppCompatActivity {
                 if (isFinishing() || isDestroyed()) {
                     return;
                 }
+                feedOffline = wasOffline;
+                if (wasOffline) {
+                    // Also ask Android to run one check the moment a connection returns,
+                    // even if the app is closed by then.
+                    AlertScheduler.runWhenOnline(this);
+                }
                 renderUrgent(user, all, at, wasOffline, bad);
                 findPosition(user, all, at, wasOffline, bad);
             });
@@ -544,6 +604,13 @@ public class HomeActivity extends AppCompatActivity {
                         System.currentTimeMillis());
                 renderUrgent(user, all, at, offline, bad);
             });
+            return;
+        }
+        if (!locationStore.wasPermissionAsked()) {
+            // First time: show the system dialog straight away. The button below is only for
+            // asking again after a "no", or for opening Settings after "Don't ask again".
+            locationStore.markPermissionAsked();
+            locationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION);
             return;
         }
         showLocationPrompt();

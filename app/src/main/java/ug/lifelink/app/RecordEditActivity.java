@@ -6,7 +6,10 @@ import android.text.Editable;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Filter;
 import android.widget.ImageButton;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -17,16 +20,21 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.datepicker.CalendarConstraints;
 import com.google.android.material.datepicker.DateValidatorPointBackward;
 import com.google.android.material.datepicker.MaterialDatePicker;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import ug.lifelink.app.data.AppData;
+import ug.lifelink.app.data.Facilities;
+import ug.lifelink.app.location.LocationStore;
 import ug.lifelink.app.data.RecordRepository;
 import ug.lifelink.app.model.BloodRecord;
 import ug.lifelink.app.ui.ConfirmDialogFragment;
@@ -74,7 +82,10 @@ public class RecordEditActivity extends AppCompatActivity {
 
     private TextView tvScreenTitle;
     private TextInputLayout layoutFacility;
-    private TextInputEditText txtFacility;
+    private MaterialAutoCompleteTextView txtFacility;
+    /** The names offered in the facility dropdown. Only these may be saved. */
+    private final List<String> facilityNames = new ArrayList<>();
+    private ArrayAdapter<String> facilityAdapter;
     private Spinner spinRecordBlood;
     private TextView tvBloodError;
     private TextInputLayout layoutUnits;
@@ -207,6 +218,7 @@ public class RecordEditActivity extends AppCompatActivity {
         tvScreenTitle = findViewById(R.id.tvScreenTitle);
         layoutFacility = findViewById(R.id.layoutFacility);
         txtFacility = findViewById(R.id.txtFacility);
+        setUpFacilityList();
         spinRecordBlood = findViewById(R.id.spinRecordBlood);
         tvBloodError = findViewById(R.id.tvBloodError);
         layoutUnits = findViewById(R.id.layoutUnits);
@@ -222,10 +234,49 @@ public class RecordEditActivity extends AppCompatActivity {
         btnDelete = findViewById(R.id.btnDelete);
     }
 
+    /** Fills the dropdown with the facilities, nearest first when a position is known. */
+    private void setUpFacilityList() {
+        double[] where = new LocationStore(this).effective();
+        facilityNames.clear();
+        facilityNames.addAll(Facilities.namesNear(where != null,
+                where == null ? 0 : where[0], where == null ? 0 : where[1]));
+        // An adapter that never filters, so the full list is offered after rotation or re-open.
+        facilityAdapter = new ArrayAdapter<String>(this,
+                android.R.layout.simple_dropdown_item_1line, facilityNames) {
+            @Override
+            public Filter getFilter() {
+                return new Filter() {
+                    @Override
+                    protected FilterResults performFiltering(CharSequence constraint) {
+                        FilterResults r = new FilterResults();
+                        r.values = new ArrayList<>(facilityNames);
+                        r.count = facilityNames.size();
+                        return r;
+                    }
+
+                    @Override
+                    protected void publishResults(CharSequence constraint, FilterResults results) {
+                        notifyDataSetChanged();
+                    }
+                };
+            }
+        };
+        txtFacility.setAdapter(facilityAdapter);
+    }
+
+    /** Shows this facility. A name from an older record that is not in the list is kept, so editing works. */
+    private void setFacility(String name) {
+        if (name != null && !name.isEmpty() && !facilityNames.contains(name)) {
+            facilityNames.add(0, name);
+            facilityAdapter.notifyDataSetChanged();
+        }
+        txtFacility.setText(name, false); // false: do not filter the list
+    }
+
     private void prefillNew() {
         String facility = getIntent().getStringExtra(EXTRA_PREFILL_FACILITY);
         if (facility != null) {
-            txtFacility.setText(facility);
+            setFacility(facility);
         }
         selectBloodGroup(getIntent().getStringExtra(EXTRA_DEFAULT_GROUP));
         txtUnits.setText("1");
@@ -233,7 +284,7 @@ public class RecordEditActivity extends AppCompatActivity {
     }
 
     private void prefillFrom(BloodRecord record) {
-        txtFacility.setText(record.getFacility());
+        setFacility(record.getFacility());
         selectBloodGroup(record.getBloodGroup());
         txtUnits.setText(String.valueOf(record.getUnits()));
         txtNote.setText(record.getNote());
@@ -337,6 +388,9 @@ public class RecordEditActivity extends AppCompatActivity {
         View firstInvalid = null;
 
         int facilityError = Validators.facilityError(facility);
+        if (facilityError == 0 && !facilityNames.contains(facility)) {
+            facilityError = R.string.error_facility_pick;
+        }
         if (facilityError != 0) {
             layoutFacility.setError(getString(facilityError));
             firstInvalid = txtFacility;
@@ -454,7 +508,7 @@ public class RecordEditActivity extends AppCompatActivity {
 
     // ------------------------------------------------------------------ helpers
 
-    private void clearErrorOnEdit(TextInputEditText field, final TextInputLayout layout) {
+    private void clearErrorOnEdit(EditText field, final TextInputLayout layout) {
         field.addTextChangedListener(new SimpleTextWatcher() {
             @Override
             public void afterTextChanged(Editable s) {
@@ -463,7 +517,7 @@ public class RecordEditActivity extends AppCompatActivity {
         });
     }
 
-    private static String textOf(TextInputEditText field) {
+    private static String textOf(EditText field) {
         return field.getText() == null ? "" : field.getText().toString();
     }
 }

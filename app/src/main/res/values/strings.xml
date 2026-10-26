@@ -191,6 +191,8 @@
     <string name="title_edit_donation">Edit donation</string>
     <string name="title_edit_request">Edit blood request</string>
     <string name="hint_facility">Hospital or blood bank</string>
+    <string name="helper_facility">Choose from the list. The nearest are shown first when your location is known.</string>
+    <string name="error_facility_pick">Choose a hospital or blood bank from the list.</string>
     <string name="hint_units">Units (1 to 20)</string>
     <string name="hint_note">Note (optional)</string>
     <string name="label_record_blood_group">Blood group</string>
