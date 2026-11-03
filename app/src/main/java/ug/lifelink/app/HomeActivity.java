@@ -426,10 +426,15 @@ public class HomeActivity extends AppCompatActivity {
         popup.getMenu().findItem(R.id.action_add).setTitle(
                 currentUser.isHospital() ? R.string.menu_add_request : R.string.menu_add_donation);
         popup.getMenu().findItem(R.id.action_demo).setVisible(!currentUser.isHospital());
+        popup.getMenu().findItem(R.id.action_pledge).setVisible(!currentUser.isHospital());
         popup.setOnMenuItemClickListener(item -> {
             int id = item.getItemId();
             if (id == R.id.action_add) {
                 openRecordForm(-1L);
+                return true;
+            } else if (id == R.id.action_pledge) {
+                screenLauncher.launch(new Intent(this, PledgeActivity.class)
+                        .putExtra(PledgeActivity.EXTRA_USER_ID, currentUser.getId()));
                 return true;
             } else if (id == R.id.action_demo) {
                 screenLauncher.launch(new Intent(this, DemoActivity.class)

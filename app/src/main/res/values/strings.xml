@@ -230,4 +230,30 @@
     <string name="error_no_maps">No maps app was found on this device.</string>
     <string name="error_no_share">No app was found to share this request.</string>
     <string name="request_unavailable">This request could not be opened.</string>
+
+    <!-- Pledges: a donation the donor plans. Stays on this phone. -->
+    <string name="menu_pledge">Plan a donation</string>
+    <string name="title_pledges">Plan a donation</string>
+    <string name="pledge_intro">Choose where and when you plan to donate. LifeLink reminds you at 8:00 that morning. This plan stays on this phone and is not a confirmed donation.</string>
+    <string name="pledge_save">Save plan</string>
+    <string name="pledge_empty">No planned donations yet.</string>
+    <string name="pledge_row">%1$s, %2$s</string>
+    <string name="pledge_status_planned">Planned</string>
+    <string name="pledge_status_completed">Marked as donated by you</string>
+    <string name="pledge_status_missed">Day passed, not marked</string>
+    <string name="pledge_status_cancelled">Cancelled</string>
+    <string name="pledge_action_calendar">Add to calendar</string>
+    <string name="pledge_action_donated">I donated</string>
+    <string name="pledge_action_cancel">Cancel this plan</string>
+    <string name="pledge_saved_reminder">Plan saved. You will get a reminder at 8:00 that day.</string>
+    <string name="pledge_saved_no_reminder">Plan saved. No reminder was set because 8:00 today has passed.</string>
+    <string name="error_pledge_past">The day cannot be in the past.</string>
+    <string name="error_pledge_far">Choose a day within the next 90 days.</string>
+    <string name="error_no_calendar">No calendar app was found on this device.</string>
+    <string name="pledge_channel_name">Donation reminders</string>
+    <string name="pledge_channel_description">A reminder on the day of a donation you planned</string>
+    <string name="pledge_reminder_title">Your planned donation is today</string>
+    <string name="pledge_reminder_text">You planned to donate at %1$s today. Tap to open LifeLink.</string>
+    <string name="pledge_calendar_title">Blood donation (LifeLink)</string>
+    <string name="pledge_calendar_description">Planned with LifeLink Uganda.</string>
 </resources>

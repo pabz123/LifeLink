@@ -459,6 +459,17 @@ Why I stayed with native: ______ (for example: the course and exam are Android, 
 
 ---
 
+## 10j. Milestone 4: planned donations, reminders and calendar (DRAFT, rewrite in your own words)
+
+- **What it is.** A donor can plan a donation (menu, "Plan a donation"): choose a facility from the list and a day from today up to 90 days ahead. A plan is a pledge, not a donation record. It stays on the phone, and only the donor can mark it "I donated". A planned day that passes without being marked is shown as "Day passed, not marked"; nothing is changed in storage.
+- **Why it is separate from donation records.** Donation records are self-reported history and have their own validation and status rules. Mixing a future intention into them would have meant rebuilding that table and its CHECK constraint. A new `pledges` table (database version 6, upgraded without data loss) keeps the two apart.
+- **Reminder.** Saving a pledge starts one WorkManager job set for 08:00 on the planned day. When it runs it reads the pledge again, so a cancelled, completed or deleted pledge never produces a reminder. Cancelling or deleting also cancels the job. If 08:00 has already passed on the chosen day, the screen says no reminder was set. Android may delay the job a little, which is acceptable for a morning reminder.
+- **Calendar.** "Add to calendar" opens the phone's calendar app with the event filled in (an `ACTION_INSERT` intent). The donor taps Save there, so the app needs no calendar permission.
+- **Not built.** A reminder to the hospital and a follow-up list need the pledge to reach a server, with the donor's consent, and a hospital console to read it. See the limitations.
+- **Tests.** `PledgePolicyTest` (10 cases: date window, missed status, reminder timing). The database checks (user separation, bad date, bad status, cascade delete, upgrade from version 5) were run against a real SQLite engine. The screen, the notification and the calendar hand-off were not run on a phone by the assistant and must be tested by you.
+
+---
+
 ## 11. AI tools used
 
 | Tool | What it helped build |
@@ -467,6 +478,7 @@ Why I stayed with native: ______ (for example: the course and exam are Android, 
 | Claude (M3) | Drafted `RecordStore`, `SqliteRecordStore`, `InMemoryRecordStore`, `AppData`, the database version 3 upgrade, the move of record reads and writes to a background thread, and the extra unit tests. I can explain and change these. |
 | Claude (M4, B1) | Drafted the request feed client and parser, `RequestCache` and the version 4 upgrade, `Geo`, `Urgency`, `RequestMatcher`, the location classes, the Home wiring (permission prompt, offline status line) and their tests. I can explain and change these. |
 | Claude (M4, after phone test) | Drafted `Facilities`, the facility dropdown, the automatic location dialog and the reconnect sync. I can explain and change these. |
+| Claude (planned donations, reminder, calendar) | Wrote the pledge storage, policy, reminder job, calendar hand-off, screen and tests (section 10j). I must be able to explain each class and change it live. |
 | Claude (M4 write-up drafts) | Drafted the first version of README sections 10f to 10i (API explanation, test table, bug log, release notes, stack comparison). I will rewrite them and fill the results myself. |
 | Claude (M4, B2) | Drafted `AlertRules`, `AlertLog`, `RequestChecker`, the WorkManager job and scheduler, `AlertNotifier`, the version 5 upgrade, `DemoActivity` and their tests. I can explain and change these. |
 
@@ -479,5 +491,6 @@ Why I stayed with native: ______ (for example: the course and exam are Android, 
 - If the phone is rotated at the exact moment a record is being saved, the save still completes but the screen is rebuilt, so the confirmation message may not show.
 - Accounts and personal records are stored on the phone only, so they are not shared between devices. Only the public request list comes from the network.
 - The request feed is read-only in the app. Requests are added by an administrator in the Firebase console (hospital posting and sign-in are not built).
+- Planned donations and their reminders exist on the donor's phone only. Hospitals are not told about a pledge, so there is no hospital reminder or follow-up list yet.
 - Alerts need a connection to learn about new requests, and the background job can only use the last saved position.
 - Without a position (permission denied, or none saved yet) distances are not shown and the radius filter is not applied.

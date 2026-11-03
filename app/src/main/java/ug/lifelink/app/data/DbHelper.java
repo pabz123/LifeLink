@@ -20,8 +20,11 @@ public class DbHelper extends SQLiteOpenHelper {
     public static final String T_ALERT_LOG = "alert_log";
     public static final String C_ALERTED_AT = "alerted_at";
 
+    public static final String T_PLEDGES = "pledges";
+    public static final String C_PLANNED_DATE = "planned_date";
+
     public static final String DB_NAME = "lifelink.db";
-    public static final int DB_VERSION = 5;
+    public static final int DB_VERSION = 6;
 
     // users
     public static final String T_USERS = "users";
@@ -127,6 +130,7 @@ public class DbHelper extends SQLiteOpenHelper {
 
         createRequestCache(db);
         createAlertLog(db);
+        createPledges(db);
     }
 
     /** Used by onCreate and by the version 4 upgrade step, so both give the same table. */
@@ -158,6 +162,20 @@ public class DbHelper extends SQLiteOpenHelper {
                 + "PRIMARY KEY (" + C_USER_ID + ", " + C_REMOTE_ID + "))");
     }
 
+    /** A donation the donor plans to make. Private to the phone; deleted with the account. */
+    private void createPledges(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS " + T_PLEDGES + " ("
+                + C_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+                + C_USER_ID + " INTEGER NOT NULL REFERENCES " + T_USERS + "(" + C_ID + ") ON DELETE CASCADE, "
+                + C_FACILITY + " TEXT NOT NULL, "
+                + C_PLANNED_DATE + " TEXT NOT NULL CHECK (" + C_PLANNED_DATE + " GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'), "
+                + C_STATUS + " TEXT NOT NULL CHECK (" + C_STATUS
+                + " IN ('PLANNED','COMPLETED','MISSED','CANCELLED')), "
+                + C_CREATED_AT + " INTEGER NOT NULL)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_pledges_user ON " + T_PLEDGES
+                + "(" + C_USER_ID + ", " + C_PLANNED_DATE + ")");
+    }
+
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         if (oldVersion < 2) {
@@ -181,6 +199,10 @@ public class DbHelper extends SQLiteOpenHelper {
         if (oldVersion < 5) {
             // Version 5 (Milestone 4): the list of requests already notified.
             createAlertLog(db);
+        }
+        if (oldVersion < 6) {
+            // Version 6 (Milestone 4): planned donations (pledges).
+            createPledges(db);
         }
     }
 }

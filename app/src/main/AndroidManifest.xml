@@ -60,6 +60,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".PledgeActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".RecordEditActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
