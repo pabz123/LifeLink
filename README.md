@@ -45,6 +45,15 @@ In Uganda, medical emergencies such as maternal hemorrhages, severe malaria in c
 | UI | XML layouts with Views (ConstraintLayout, LinearLayout, ScrollView, ListView) and one custom Canvas View (`EligibilityRingView`) | Declarative layout design; allows clean separation of UI from business logic, custom Canvas graphics for rings, and supports resource qualifiers (e.g. `layout-land`, `values-sw600dp`) for responsive device configurations. |
 | Minimum SDK | API 26 (Android 8.0) | Mandatory for `PBKDF2WithHmacSHA256` password hashing algorithm, adaptive icons, notification channels (required in M4), and broad device compatibility covering >95% of active Android devices in Uganda. |
 | Local database | SQLite through `SQLiteOpenHelper` | Required by coursework specifications; lightweight, embedded relational database that operates offline with zero server overhead and fully transparent SQL queries. |
+| Remote data | Firebase Realtime Database, read over its REST address (Spark plan) | The urgent requests are shared by every phone, so they must live on a server. A plain HTTPS GET returns JSON, which is exactly the REST API the brief asks for, and the free plan costs nothing. No Firebase library is needed in the app. |
+| Networking | `HttpURLConnection` and the built-in `org.json` | Both ship with Android, so there is nothing extra to install, learn or trust. |
+| Location | Google Play services fused provider, approximate (coarse) only | Distances to hospitals need town-level accuracy, so the least sensitive permission is enough. |
+| Background work | WorkManager | Android's supported way to run a check about every 15 minutes, only when a network is available, and to survive the app being closed. |
+
+**Why two data stores.** The rule used is: private data stays on the phone, shared data lives on a server.
+- *SQLite (on the phone)* holds accounts and a donor's own records. They are personal, they must work with no connection, and SQLite lets the database itself enforce rules (foreign keys, CHECK constraints, `user_id` filtering).
+- *Firebase (on the internet)* holds only the public urgent requests that hospitals publish. Many phones read the same list, and a hospital's update must reach all of them.
+- Accounts are deliberately **not** in Firebase: that would need Firebase Authentication and would put personal data on a server. The consequence, stated in Known limitations, is that an account exists on one phone only.
 
 ---
 
@@ -325,6 +334,131 @@ Manual checklist:
 
 ---
 
+## 10f. Milestone 4: REST API, connectivity and device capability
+
+> **DRAFT written by Claude. Rewrite every paragraph in your own words and delete this line.** Facts below match the code; check each one against the file named.
+
+### The REST API (GET)
+
+- **What it is.** The Firebase Realtime Database answers an ordinary HTTPS address: `https://<project>-default-rtdb.europe-west1.firebasedatabase.app/requests.json`. A GET to it returns every urgent request as JSON. (`net/RequestFeedClient.java`)
+- **Request.** `HttpURLConnection`, method GET, header `Accept: application/json`, HTTPS only (no cleartext traffic is allowed).
+- **Response.** An object keyed by request id, each entry holding `facility`, `bloodGroup`, `units`, `urgency`, `note`, `contactPhone`, `lat`, `lng`, `verified`, `postedAt` and `expiresAt`. Firebase answers the text `null` when the list is empty.
+- **Parsing.** `RequestFeedParser` reads the text with `org.json`, then checks every entry with the same rules as the forms (blood group, units 1 to 20, facility text, note length, phone pattern, coordinate ranges). An entry that breaks a rule is skipped and counted, and Home shows how many were ignored. Unknown urgency becomes Routine. A bad phone number is blanked but the request is kept.
+- **Selected data shown.** Home shows the hospital, blood group, units, urgency and distance. The details screen adds the note, the contact phone and whether the hospital is verified.
+- **Off the main thread.** The download runs on a worker thread (`ExecutorService` in `HomeActivity`, `WorkManager` in the background check). Results return to the screen with `runOnUiThread`.
+
+### Handling failure without crashing
+
+| Situation | What the code does | Where |
+|---|---|---|
+| No internet | `IOException`; the saved copy is shown with "Offline. Showing requests saved at ..." | `HomeActivity.bindUrgentRequests` |
+| Slow or stalled connection | 8 second connect and read timeouts, then the same path as no internet | `RequestFeedClient` |
+| Server error (any answer other than HTTP 200) | Turned into an `IOException`; the saved copy is kept | `RequestFeedClient.fetch` |
+| Answer is not JSON (for example a Wi-Fi login page) | `JSONException` becomes an `IOException`; nothing is replaced | `RequestFeedClient`, `RequestFeedParser` |
+| Answer is too large | Reading stops after 512 KB | `RequestFeedClient.readLimited` |
+| Some entries are invalid | Those entries are skipped; the rest are shown | `RequestFeedParser` |
+
+### Offline copy and syncing
+
+- After every successful download the whole list replaces the `request_cache` table (database version 4), so the cache is always the last good answer. The cache holds public hospital data only, nothing about a user.
+- When the connection returns while Home is open, the feed is downloaded again at once. If the app is closed, one background check is queued for when a network is available. (`HomeActivity.watchNetwork`, `AlertScheduler.runWhenOnline`)
+
+### Device capability 1: location
+
+- Only `ACCESS_COARSE_LOCATION` is requested (approximate position). The system dialog appears the first time Home opens. (`HomeActivity.findPosition`, `location/DeviceLocation.java`)
+- **If permission is denied:** every compatible request is still shown, without distances, and a line explains why. After a permanent refusal the button opens the app's settings page. Tested in test case T11.
+- The distance is calculated on the phone (haversine formula in `util/Geo.java`), so the donor's position is never uploaded.
+- The radius depends on urgency: Critical 15 km, Urgent 30 km, Routine 50 km, multiplied by 1.5 for Rh-negative requests. (`model/Urgency.java`, `util/RequestMatcher.java`)
+
+### Device capability 2: notifications
+
+- A WorkManager job runs about every 15 minutes while a network is available. It notifies only about requests that are verified, Critical or Urgent, inside the radius, compatible with the donor's blood group and not already notified (`alert/AlertRules.java`, `data/AlertLog.java`).
+- On Android 13 and later the app asks once for `POST_NOTIFICATIONS`. If refused, alerts are skipped and the list still works. Tested in test case T13.
+- **Demo mode** (menu, donors only) lets a presenter pick a pretend place, post a local test request and run the check on demand.
+
+### Where a POST request would apply
+
+- The app currently only reads (GET). A POST (or PUT) would be used when a **verified hospital posts a new request** to `/requests.json`: Firebase accepts a POST to a path and stores the body under a new unique key. A donor's "I can go" reply or a "Report this request" action would be further POST cases.
+- It is not built because it needs hospital sign-in (Firebase Authentication) and database rules that allow writing only for verified hospital accounts. Today the administrator adds requests in the Firebase console, and the rules allow reading `requests` and nothing else.
+
+---
+
+## 10g. Milestone 4: testing
+
+> **DRAFT table written by Claude. Only you can fill the result columns, because only you can run the tests. Do not write a result you did not see.** Add the device name, Android version and screen size for each run.
+
+| ID | What I do | Expected result | Emulator result | Phone result |
+|---|---|---|---|---|
+| T1 | Register with valid details | Account is created and I reach Login or Home | | |
+| T2 | Register with a bad email and a short password | Field errors appear; no account is created | | |
+| T3 | Log in with a wrong password five times | The account is locked for five minutes with a message | | |
+| T4 | Add a donation: choose a hospital from the list, set a date, save | The record appears at the top of the list with a confirmation message | | |
+| T5 | Type into the add form, then rotate the phone | The typed text and chosen date are still there | | |
+| T6 | Open a record, tap Delete, then Cancel, then Delete and confirm | Cancel keeps the record; confirm removes it | | |
+| T7 | Add a record, force-stop the app, reopen it | The record is still there | | |
+| T8 | Log in as a second user | I see none of the first user's records | | |
+| T9 | Open Home with internet | Requests load and the line says "Updated ..." | | |
+| T10 | Turn on airplane mode and open Home | The saved requests show with an Offline line; no crash | | |
+| T11 | Deny the location permission | Requests show without distances; the button explains or opens Settings | | |
+| T12 | Allow location, use Demo mode, post a test request, run the check | A notification appears | | |
+| T13 | Refuse the notification permission, then run the check | No notification and no crash | | |
+| T14 | Set the system font size to the largest and turn on TalkBack | Text is readable; buttons and fields are announced with labels | | |
+| T15 | Run on a small phone, a large phone or tablet, and in landscape | Layouts stay usable and nothing is cut off | | |
+
+Run on at least two screen sizes or Android versions (for example your phone and an emulator with a different size) and write both in the table.
+
+### Bug log
+
+> Rewrite in your own words. The first rows are real defects found while building, taken from our work; check the dates and severity.
+
+| ID | Found | What happened | Severity | Cause | Fix | Status |
+|---|---|---|---|---|---|---|
+| B1 | 26 Oct | The project would not compile after adding the feed | Critical (no build) | A catch clause named an exception that `fetch()` can never throw | Catch only `IOException` | Fixed |
+| B2 | 26 Oct | Every nearby request showed "0.0 km away" in Demo mode | Medium | The pretend position was the same point as the sample hospitals | Pretend positions moved a few km away | Fixed |
+| B3 | 26 Oct | A donor could type an invented hospital in Add donation | Medium (data quality) | Free-text field | Replaced with a choose-only list, nearest first | Fixed |
+| B4 | 26 Oct | The app asked for the password again after being in the background | Medium | A session lasted only if "Keep me signed in" was ticked | 15-minute idle session added | Fixed |
+| B5 | 26 Oct | The whole app felt slow | Unknown | Not yet diagnosed; likely a debug build | | Open: measure on a release build |
+
+### Performance, network and battery notes (fill in what you observe)
+
+- Debug versus release start-up time: ______
+- The slow screen or action (which one, how long): ______
+- Battery: the background check runs about every 15 minutes and only with a network; note any drain you see: ______
+- Network: one request list download is small (the cap is 512 KB): ______
+
+---
+
+## 10h. Milestone 4: release, distribution and updates
+
+> **DRAFT. Rewrite in your own words.**
+
+- **Build.** A signed release APK is built with the keystore described in section 10e. The release keeps `versionCode` (a whole number that must go up with every release) and `versionName` (what users see, such as 1.0). Keep the keystore file safe and outside the repository: an app can only be updated by something signed with the same key.
+- **Install on a phone.** Copy the APK to the phone and open it (allow installing from this source), or run `adb install app-release.apk`.
+- **How I would distribute it.** For real use: publish an Android App Bundle on Google Play, starting with internal and closed testing and then production, so donors get it from the store. For a pilot with a blood bank or a few hospitals: share the signed APK directly (WhatsApp, a download link) or use Firebase App Distribution.
+- **How I would update it.** Raise `versionCode`, rebuild and sign with the same key, upload the new release. Play updates installed apps automatically, and the app could also use Android's in-app update prompt. The database upgrades itself: `DbHelper.onUpgrade` adds new tables and columns without deleting accounts (it moved from version 2 to 5 this way).
+- **Updating the data is separate from updating the app.** New requests, hospitals and verification flags change in Firebase and reach phones without a new release.
+
+---
+
+## 10i. Milestone 4: stack comparison
+
+> **DRAFT skeleton. The brief asks for half a page in your own words, using the alternative you know. Flutter is suggested because you have used it; change it if you prefer another.**
+
+I built LifeLink as a native Android app in Java with XML layouts. The main alternative is Flutter (Dart).
+
+| Heading | Native Android (Java) | Flutter |
+|---|---|---|
+| Code reuse | The app runs on Android only; an iPhone version would be a second project | One codebase can target Android and iOS (and web) |
+| Performance | Runs directly on the platform with no extra layer | Compiled and fast, but ships its own rendering engine, so the app is larger |
+| Device features | Direct access to every API on day one (location, WorkManager, notifications) | Reached through plugins or platform channels; most common features have a plugin |
+| UI | Platform widgets, so it looks like other Android apps | The same custom widgets on both systems, with more control over the look |
+| Tooling and cost | Android Studio only; no extra tools | Needs Flutter and Dart as well as the platform toolchains; hot reload speeds up design work |
+| Fit with this course | The syllabus, group presentations and exam are all Android | Allowed for the project, but the theory and exam would still be Android |
+
+Why I stayed with native: ______ (for example: the course and exam are Android, I needed WorkManager and notifications early, and my first screens were already built). What I would change for a real product: ______ (for example: Flutter if both Android and iPhone users had to be reached from one team).
+
+---
+
 ## 11. AI tools used
 
 | Tool | What it helped build |
@@ -333,6 +467,7 @@ Manual checklist:
 | Claude (M3) | Drafted `RecordStore`, `SqliteRecordStore`, `InMemoryRecordStore`, `AppData`, the database version 3 upgrade, the move of record reads and writes to a background thread, and the extra unit tests. I can explain and change these. |
 | Claude (M4, B1) | Drafted the request feed client and parser, `RequestCache` and the version 4 upgrade, `Geo`, `Urgency`, `RequestMatcher`, the location classes, the Home wiring (permission prompt, offline status line) and their tests. I can explain and change these. |
 | Claude (M4, after phone test) | Drafted `Facilities`, the facility dropdown, the automatic location dialog and the reconnect sync. I can explain and change these. |
+| Claude (M4 write-up drafts) | Drafted the first version of README sections 10f to 10i (API explanation, test table, bug log, release notes, stack comparison). I will rewrite them and fill the results myself. |
 | Claude (M4, B2) | Drafted `AlertRules`, `AlertLog`, `RequestChecker`, the WorkManager job and scheduler, `AlertNotifier`, the version 5 upgrade, `DemoActivity` and their tests. I can explain and change these. |
 
 ---
