@@ -149,6 +149,7 @@ public class LoginActivity extends AppCompatActivity {
         });
 
         // Action 3: open the Register screen.
+        findViewById(R.id.tvLanguageLink).setOnClickListener(v -> ug.lifelink.app.util.AppLanguage.showPicker(this));
         tvRegisterLink.setOnClickListener(v ->
                 startActivity(new Intent(this, RegisterActivity.class)));
 

@@ -440,6 +440,9 @@ public class HomeActivity extends AppCompatActivity {
                 screenLauncher.launch(new Intent(this, DemoActivity.class)
                         .putExtra("ug.lifelink.app.extra.USER_ID", currentUser.getId()));
                 return true;
+            } else if (id == R.id.action_language) {
+                ug.lifelink.app.util.AppLanguage.showPicker(this);
+                return true;
             } else if (id == R.id.action_about) {
                 ConfirmDialogFragment.newInfo(R.string.about_title, R.string.about_message)
                         .show(getSupportFragmentManager(), ConfirmDialogFragment.TAG);

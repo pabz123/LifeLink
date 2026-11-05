@@ -470,6 +470,15 @@ Why I stayed with native: ______ (for example: the course and exam are Android, 
 
 ---
 
+## 10k. Luganda interface (DRAFT, rewrite in your own words)
+
+- **What it is.** The app can be switched between English and Luganda from the login screen and from the Home menu ("Language / Olulimi"). The choice is remembered (AppCompat per-app language; on Android 13 and later it also appears in the phone's app language settings). Strings that have no Luganda text fall back to English by themselves.
+- **Where the text came from.** The Luganda column was written and reviewed with AI help in a spreadsheet and has **not** been confirmed by a native speaker. It must be reviewed before any real release. The medical, eligibility and privacy wording needs a qualified person as well.
+- **Left in English on purpose.** The app name, tagline and logo description, and the data-protection consent sentence (legal wording must be checked first). The newest strings (planned donations) are not translated yet.
+- **A bug caught by checking.** One plural row contained a `%d` that the app never supplies, which would have crashed the Home screen in Luganda. `LocalizationResourcesTest` now fails if any Luganda entry has different format placeholders from its English original, or names a string that does not exist.
+
+---
+
 ## 11. AI tools used
 
 | Tool | What it helped build |
@@ -479,6 +488,7 @@ Why I stayed with native: ______ (for example: the course and exam are Android, 
 | Claude (M4, B1) | Drafted the request feed client and parser, `RequestCache` and the version 4 upgrade, `Geo`, `Urgency`, `RequestMatcher`, the location classes, the Home wiring (permission prompt, offline status line) and their tests. I can explain and change these. |
 | Claude (M4, after phone test) | Drafted `Facilities`, the facility dropdown, the automatic location dialog and the reconnect sync. I can explain and change these. |
 | Claude (planned donations, reminder, calendar) | Wrote the pledge storage, policy, reminder job, calendar hand-off, screen and tests (section 10j). I must be able to explain each class and change it live. |
+| Claude (Luganda interface) | Imported the reviewed spreadsheet into `values-lg`, added the language switch and the placeholder test (section 10k). The translations themselves were AI-assisted and are unconfirmed. |
 | Claude (M4 write-up drafts) | Drafted the first version of README sections 10f to 10i (API explanation, test table, bug log, release notes, stack comparison). I will rewrite them and fill the results myself. |
 | Claude (M4, B2) | Drafted `AlertRules`, `AlertLog`, `RequestChecker`, the WorkManager job and scheduler, `AlertNotifier`, the version 5 upgrade, `DemoActivity` and their tests. I can explain and change these. |
 

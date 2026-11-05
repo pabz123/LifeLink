@@ -256,4 +256,9 @@
     <string name="pledge_reminder_text">You planned to donate at %1$s today. Tap to open LifeLink.</string>
     <string name="pledge_calendar_title">Blood donation (LifeLink)</string>
     <string name="pledge_calendar_description">Planned with LifeLink Uganda.</string>
+
+    <!-- Language: bilingual on purpose, so a person who cannot read English can still find it. -->
+    <string name="menu_language">Language / Olulimi</string>
+    <string name="language_english">English</string>
+    <string name="language_luganda">Oluganda (Luganda)</string>
 </resources>
