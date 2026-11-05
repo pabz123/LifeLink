@@ -19,7 +19,8 @@ import ug.lifelink.app.util.SessionManager;
 
 /**
  * The launcher screen. It shows the brand for a moment, and meanwhile decides where to go:
- * Home for someone who chose "Keep me signed in", otherwise Login. Doing this check here
+ * Home for someone who chose "Keep me signed in" or whose session is still within its idle
+ * timeout, otherwise Login. Doing this check here
  * keeps LoginActivity focused on logging in.
  *
  * The splash is kept on screen for at least MIN_SPLASH_MS so the animation can finish,
@@ -90,11 +91,12 @@ public class SplashActivity extends AppCompatActivity {
 
     private void resolveDestination() {
         final SessionManager session = new SessionManager(this);
-        if (!session.hasRememberedUser()) {
+        // Remembered ("Keep me signed in") or a session that has not been idle too long.
+        final long id = session.resumableUserId(System.currentTimeMillis());
+        if (id < 0) {
             onResolved(null);
             return;
         }
-        final long id = session.getRememberedUserId();
         worker.execute(() -> {
             User user = null;
             try {

@@ -149,6 +149,7 @@ public class LoginActivity extends AppCompatActivity {
         });
 
         // Action 3: open the Register screen.
+        findViewById(R.id.tvLanguageLink).setOnClickListener(v -> ug.lifelink.app.util.AppLanguage.showPicker(this));
         tvRegisterLink.setOnClickListener(v ->
                 startActivity(new Intent(this, RegisterActivity.class)));
 
@@ -247,10 +248,10 @@ public class LoginActivity extends AppCompatActivity {
         }
 
         User user = result.getUser();
+        session.clear(); // drop any earlier person's choice or session first
+        session.startSession(user.getId()); // idle timeout applies unless "Keep me signed in"
         if (remember) {
             session.remember(user.getId());
-        } else {
-            session.clear();
         }
         Toast.makeText(this, getString(R.string.welcome_back, user.getFirstName()),
                 Toast.LENGTH_SHORT).show();
