@@ -2,7 +2,9 @@ package ug.lifelink.app.pledge;
 
 import android.content.Context;
 
+import androidx.work.Constraints;
 import androidx.work.ExistingWorkPolicy;
+import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 
@@ -41,6 +43,33 @@ public final class PledgeScheduler {
         WorkManager.getInstance(context.getApplicationContext())
                 .enqueueUniqueWork(workName(pledge.getId()), ExistingWorkPolicy.REPLACE, request);
         return true;
+    }
+
+    private static Constraints needsNetwork() {
+        return new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
+    }
+
+    /**
+     * Send the shared pledges that are out of date, as soon as the phone is online (at once when
+     * it already is). APPEND_OR_REPLACE: a pledge added while a run is in progress is not missed.
+     */
+    public static void syncNow(Context context, long userId) {
+        OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(PledgeSyncWorker.class)
+                .setConstraints(needsNetwork())
+                .setInputData(PledgeSyncWorker.uploadInput(userId))
+                .build();
+        WorkManager.getInstance(context.getApplicationContext()).enqueueUniqueWork(
+                "lifelink_pledge_sync_" + userId, ExistingWorkPolicy.APPEND_OR_REPLACE, request);
+    }
+
+    /** Remove the shared copy of a deleted pledge, when online. */
+    public static void withdrawLater(Context context, Pledge pledge) {
+        OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(PledgeSyncWorker.class)
+                .setConstraints(needsNetwork())
+                .setInputData(PledgeSyncWorker.withdrawInput(pledge.getFacility(), pledge.getRemoteId()))
+                .build();
+        WorkManager.getInstance(context.getApplicationContext()).enqueueUniqueWork(
+                "lifelink_pledge_withdraw_" + pledge.getRemoteId(), ExistingWorkPolicy.REPLACE, request);
     }
 
     public static void cancel(Context context, long pledgeId) {

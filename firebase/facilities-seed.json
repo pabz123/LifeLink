@@ -1,0 +1,83 @@
+{
+  "nakasero-blood-bank-ubts": {
+    "name": "Nakasero Blood Bank (UBTS)"
+  },
+  "mulago-national-referral-hospital": {
+    "name": "Mulago National Referral Hospital"
+  },
+  "nsambya-hospital": {
+    "name": "Nsambya Hospital"
+  },
+  "lubaga-hospital": {
+    "name": "Lubaga Hospital"
+  },
+  "mengo-hospital": {
+    "name": "Mengo Hospital"
+  },
+  "nakasero-hospital": {
+    "name": "Nakasero Hospital"
+  },
+  "mbarara-regional-blood-bank-ubts": {
+    "name": "Mbarara Regional Blood Bank (UBTS)"
+  },
+  "mbarara-regional-referral-hospital": {
+    "name": "Mbarara Regional Referral Hospital"
+  },
+  "mbale-regional-blood-bank-ubts": {
+    "name": "Mbale Regional Blood Bank (UBTS)"
+  },
+  "mbale-regional-referral-hospital": {
+    "name": "Mbale Regional Referral Hospital"
+  },
+  "bududa-health-centre": {
+    "name": "Bududa Health Centre"
+  },
+  "gulu-regional-blood-bank-ubts": {
+    "name": "Gulu Regional Blood Bank (UBTS)"
+  },
+  "gulu-regional-referral-hospital": {
+    "name": "Gulu Regional Referral Hospital"
+  },
+  "arua-regional-blood-bank-ubts": {
+    "name": "Arua Regional Blood Bank (UBTS)"
+  },
+  "arua-regional-referral-hospital": {
+    "name": "Arua Regional Referral Hospital"
+  },
+  "fort-portal-regional-blood-bank-ubts": {
+    "name": "Fort Portal Regional Blood Bank (UBTS)"
+  },
+  "fort-portal-regional-referral-hospital": {
+    "name": "Fort Portal Regional Referral Hospital"
+  },
+  "kabale-regional-blood-bank-ubts": {
+    "name": "Kabale Regional Blood Bank (UBTS)"
+  },
+  "kabale-regional-referral-hospital": {
+    "name": "Kabale Regional Referral Hospital"
+  },
+  "hoima-regional-blood-bank-ubts": {
+    "name": "Hoima Regional Blood Bank (UBTS)"
+  },
+  "hoima-regional-referral-hospital": {
+    "name": "Hoima Regional Referral Hospital"
+  },
+  "soroti-regional-blood-bank-ubts": {
+    "name": "Soroti Regional Blood Bank (UBTS)"
+  },
+  "soroti-regional-referral-hospital": {
+    "name": "Soroti Regional Referral Hospital"
+  },
+  "lira-regional-referral-hospital": {
+    "name": "Lira Regional Referral Hospital"
+  },
+  "jinja-regional-referral-hospital": {
+    "name": "Jinja Regional Referral Hospital"
+  },
+  "masaka-regional-referral-hospital": {
+    "name": "Masaka Regional Referral Hospital"
+  },
+  "kitovu-hospital": {
+    "name": "Kitovu Hospital"
+  }
+}

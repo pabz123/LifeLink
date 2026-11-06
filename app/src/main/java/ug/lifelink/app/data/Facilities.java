@@ -66,6 +66,19 @@ public final class Facilities {
         return ALL;
     }
 
+    /**
+     * The key that names this facility in the shared database: lower case letters and digits
+     * with single dashes, for example "mbarara-regional-referral-hospital". The hospital's staff
+     * entry in Firebase must use the same key.
+     */
+    public static String idFor(String name) {
+        if (name == null) {
+            return "";
+        }
+        String id = name.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "-");
+        return id.replaceAll("^-+|-+$", "");
+    }
+
     public static boolean isKnown(String name) {
         for (Facility f : ALL) {
             if (f.name.equals(name)) {

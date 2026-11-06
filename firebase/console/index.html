@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LifeLink Console</title>
+<style>
+  :root { --bg:#FBF6F3; --ink:#231416; --muted:#5B4A4C; --card:#FFFDFB; --line:#EBDAD5; --red:#B71C1C; --green:#1B5E20; --amber:#7A4B00; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, Arial, sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:#231416; color:#FBF6F3; padding:16px 24px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; }
+  header h1 { margin:0; font-size:20px; } header span { color:#FF8A80; }
+  main { max-width:1000px; margin:0 auto; padding:24px 16px 64px; display:flex; flex-direction:column; gap:20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px; }
+  label { display:flex; flex-direction:column; gap:6px; font-size:14px; font-weight:600; }
+  input { min-height:44px; padding:0 12px; border:1px solid #C9B3AE; border-radius:10px; font-size:16px; }
+  button { min-height:44px; padding:0 16px; border-radius:10px; border:1px solid var(--red); background:#fff; color:var(--red); font-weight:700; font-size:14px; cursor:pointer; }
+  button.primary { background:var(--red); color:#fff; }
+  .row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
+  .muted { color:var(--muted); font-size:14px; line-height:1.5; margin:0; }
+  .error { color:#7F1212; font-weight:600; min-height:1.2em; }
+  .tabs { display:flex; flex-wrap:wrap; gap:8px; }
+  .tabs button[aria-pressed="true"] { background:var(--red); color:#fff; }
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; min-width:560px; }
+  th { text-align:left; color:var(--muted); padding:8px 6px; font-size:14px; }
+  td { padding:12px 6px; border-top:1px solid var(--line); }
+  .pill { display:inline-block; padding:4px 10px; border-radius:999px; font-size:13px; font-weight:700; }
+  .planned { background:#FFF1D6; color:var(--amber); } .confirmed { background:#E3F1E4; color:var(--green); }
+  .missed { background:#F6DADA; color:#7F1212; } .cancelled { background:#ECE6E4; color:var(--muted); }
+  .code { font-weight:700; letter-spacing:1px; font-size:17px; }
+  .banner { background:#FFF1D6; color:var(--amber); font-weight:700; border-radius:10px; padding:12px 16px; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>LifeLink <span>Console</span></h1>
+  <div id="who" class="muted" style="color:#D9C3BE"></div>
+  <button id="signOut" hidden>Sign out</button>
+</header>
+<main>
+  <section id="signin" class="card">
+    <h2 style="margin-top:0">Staff sign in</h2>
+    <form id="signinForm" class="row">
+      <label>Email <input id="email" type="email" autocomplete="username" required></label>
+      <label>Password <input id="password" type="password" autocomplete="current-password" required></label>
+      <button class="primary" type="submit">Sign in</button>
+    </form>
+    <p id="signinError" class="error" role="alert"></p>
+    <p class="muted">Only accounts that an administrator has linked to a facility can see pledges.</p>
+  </section>
+
+  <section id="work" hidden>
+    <div class="card" style="margin-bottom:20px">
+      <h2 id="facilityName" style="margin-top:0"></h2>
+      <p id="dueBanner" class="banner" hidden></p>
+      <p class="muted">Donors who chose to share a plan appear here with a random code. Names and phone numbers are not shared. When the donor arrives, ask for the code, find it below and confirm the donation.</p>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div class="tabs" role="group" aria-label="Filter">
+          <button data-f="due" aria-pressed="true">Due today</button>
+          <button data-f="upcoming" aria-pressed="false">Upcoming</button>
+          <button data-f="followup" aria-pressed="false">Follow-up (day passed)</button>
+          <button data-f="done" aria-pressed="false">Done</button>
+          <button data-f="all" aria-pressed="false">All</button>
+        </div>
+        <label>Find by code <input id="search" placeholder="K7Q-2M4" maxlength="7" style="width:140px;text-transform:uppercase"></label>
+      </div>
+      <p id="count" class="muted" style="margin:12px 0 0"></p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Code</th><th>Planned day</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <p id="actionError" class="error" role="alert"></p>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getDatabase, ref, get, set, onValue, off } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyDL_4nxw_RnqkGa2HQmjs8C7Af95pIUAO4",
+  authDomain: "lifelink1234567890.firebaseapp.com",
+  databaseURL: "https://lifelink1234567890-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "lifelink1234567890"
+});
+const auth = getAuth(app);
+const db = getDatabase(app);
+const $ = (id) => document.getElementById(id);
+
+let facilityId = null, pledgesRef = null, all = [], filter = "due";
+
+const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); };
+
+// Where a pledge sits: the filters are computed here from the planned day and the status.
+function bucket(p) {
+  const t = today();
+  if (p.status === "CONFIRMED" || p.status === "DID_NOT_ATTEND" || p.status === "CANCELLED") return "done";
+  if (p.plannedDate === t) return "due";
+  if (p.plannedDate > t) return "upcoming";
+  return "followup"; // planned, but the day has passed and nobody confirmed
+}
+function label(p) {
+  if (p.status === "CONFIRMED") return ["Confirmed", "confirmed"];
+  if (p.status === "DID_NOT_ATTEND") return ["Did not attend", "missed"];
+  if (p.status === "CANCELLED") return ["Cancelled by donor", "cancelled"];
+  return bucket(p) === "followup" ? ["Day passed, not confirmed", "missed"] : ["Planned", "planned"];
+}
+
+async function setStatus(p, status) {
+  $("actionError").textContent = "";
+  try { await set(ref(db, `pledges/${facilityId}/${p.id}/status`), status); }
+  catch (e) { $("actionError").textContent = "Could not save: " + e.message; }
+}
+
+function render() {
+  const q = $("search").value.trim().toUpperCase();
+  const shown = all.filter((p) => (filter === "all" || bucket(p) === filter) && (!q || p.donorCode.includes(q)))
+                   .sort((a, b) => a.plannedDate.localeCompare(b.plannedDate));
+  const due = all.filter((p) => bucket(p) === "due").length;
+  const late = all.filter((p) => bucket(p) === "followup").length;
+  $("dueBanner").hidden = due + late === 0;
+  $("dueBanner").textContent = `${due} due today, ${late} past their day without confirmation.`;
+  document.title = (due + late > 0 ? `(${due + late}) ` : "") + "LifeLink Console";
+  $("count").textContent = `${shown.length} shown`;
+  const body = $("rows"); body.replaceChildren();
+  for (const p of shown) {
+    const tr = document.createElement("tr");
+    const code = document.createElement("td"); code.className = "code"; code.textContent = p.donorCode;
+    const day = document.createElement("td"); day.textContent = p.plannedDate;
+    const st = document.createElement("td"); const [text, cls] = label(p);
+    const pill = document.createElement("span"); pill.className = "pill " + cls; pill.textContent = text; st.append(pill);
+    const act = document.createElement("td");
+    if (p.status === "PLANNED" || p.status === "DID_NOT_ATTEND") {
+      const ok = document.createElement("button"); ok.className = "primary"; ok.textContent = "Confirm donation";
+      ok.onclick = () => setStatus(p, "CONFIRMED"); act.append(ok, " ");
+    }
+    if (p.status === "PLANNED") {
+      const no = document.createElement("button"); no.textContent = "Did not attend";
+      no.onclick = () => setStatus(p, "DID_NOT_ATTEND"); act.append(no);
+    }
+    tr.append(code, day, st, act); body.append(tr);
+  }
+}
+
+for (const b of document.querySelectorAll(".tabs button")) {
+  b.onclick = () => { filter = b.dataset.f; document.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); render(); };
+}
+$("search").oninput = render;
+$("signOut").onclick = () => signOut(auth);
+$("signinForm").onsubmit = async (e) => {
+  e.preventDefault(); $("signinError").textContent = "";
+  try { await signInWithEmailAndPassword(auth, $("email").value.trim(), $("password").value); }
+  catch (err) { $("signinError").textContent = "Sign-in failed. Check the email and password."; }
+};
+
+onAuthStateChanged(auth, async (user) => {
+  if (pledgesRef) { off(pledgesRef); pledgesRef = null; }
+  all = []; facilityId = null;
+  $("signin").hidden = !!user; $("work").hidden = true; $("signOut").hidden = !user;
+  $("who").textContent = user ? user.email : "";
+  if (!user) return;
+  let staff;
+  try { staff = (await get(ref(db, `staff/${user.uid}`))).val(); } catch (e) { staff = null; }
+  if (!staff || !staff.facilityId) {
+    $("signin").hidden = false; $("signinError").textContent = "This account is not linked to a facility. Ask an administrator.";
+    await signOut(auth); return;
+  }
+  facilityId = staff.facilityId;
+  const fac = (await get(ref(db, `facilities/${facilityId}/name`))).val();
+  $("facilityName").textContent = fac || facilityId;
+  $("work").hidden = false;
+  pledgesRef = ref(db, `pledges/${facilityId}`);
+  onValue(pledgesRef, (snap) => {
+    all = []; snap.forEach((c) => { all.push(Object.assign({ id: c.key }, c.val())); }); render();
+  }, (err) => { $("actionError").textContent = "Cannot read pledges: " + err.message; });
+});
+setInterval(render, 60000); // the "due today" buckets move at midnight
+</script>
+</body>
+</html>

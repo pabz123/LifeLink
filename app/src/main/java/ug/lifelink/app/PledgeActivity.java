@@ -6,6 +6,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.Filter;
 import android.widget.ImageButton;
 import android.widget.ListView;
@@ -29,6 +30,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.Executors;
 
 import ug.lifelink.app.data.Facilities;
@@ -37,6 +40,8 @@ import ug.lifelink.app.location.LocationStore;
 import ug.lifelink.app.model.Pledge;
 import ug.lifelink.app.pledge.CalendarLink;
 import ug.lifelink.app.pledge.PledgeScheduler;
+import ug.lifelink.app.pledge.PledgeSync;
+import ug.lifelink.app.util.PledgeCode;
 import ug.lifelink.app.util.PledgePolicy;
 
 /**
@@ -60,6 +65,7 @@ public class PledgeActivity extends AppCompatActivity {
     private TextView tvError;
     private TextView tvEmpty;
     private ListView listPledges;
+    private CheckBox chkShare;
 
     private final List<String> facilityNames = new ArrayList<>();
     private final List<Pledge> items = new ArrayList<>();
@@ -88,6 +94,7 @@ public class PledgeActivity extends AppCompatActivity {
         tvError = findViewById(R.id.tvPledgeError);
         tvEmpty = findViewById(R.id.tvPledgeEmpty);
         listPledges = findViewById(R.id.listPledges);
+        chkShare = findViewById(R.id.chkShare);
 
         ((ImageButton) findViewById(R.id.btnBack)).setOnClickListener(v -> finish());
         ((Button) findViewById(R.id.btnPledgeDate)).setOnClickListener(v -> showDatePicker());
@@ -190,15 +197,22 @@ public class PledgeActivity extends AppCompatActivity {
             return;
         }
         final String date = selected.toString();
+        final boolean share = chkShare.isChecked();
         worker.execute(() -> {
             try {
-                long id = pledges.add(userId, facility, date, System.currentTimeMillis());
+                String remoteId = share ? UUID.randomUUID().toString() : null;
+                String code = share ? PledgeCode.generate(new Random()) : null;
+                long id = pledges.add(userId, facility, date, System.currentTimeMillis(), remoteId, code);
                 Pledge saved = pledges.get(userId, id);
                 boolean reminder = saved != null && PledgeScheduler.schedule(this, saved);
+                if (share) {
+                    PledgeScheduler.syncNow(this, userId);
+                }
                 runOnUiThread(() -> {
                     Toast.makeText(this, reminder ? R.string.pledge_saved_reminder
                             : R.string.pledge_saved_no_reminder, Toast.LENGTH_LONG).show();
                     txtFacility.setText("", false);
+                    chkShare.setChecked(false);
                     selected = null;
                     renderDate();
                     reload();
@@ -222,13 +236,33 @@ public class PledgeActivity extends AppCompatActivity {
                 LocalDate day = LocalDate.parse(p.getPlannedDate());
                 String status = PledgePolicy.effectiveStatus(p.getStatus(), day, LocalDate.now());
                 ((TextView) row.findViewById(android.R.id.text1)).setText(p.getFacility());
-                ((TextView) row.findViewById(android.R.id.text2)).setText(
-                        getString(R.string.pledge_row, shown.format(day), statusLabel(status)));
+                String label = Pledge.REMOTE_CONFIRMED.equals(p.getRemoteStatus())
+                        ? getString(R.string.pledge_status_confirmed) : statusLabel(status);
+                String line = getString(R.string.pledge_row, shown.format(day), label);
+                if (p.isShared()) {
+                    line += "\n" + shareLine(p);
+                }
+                ((TextView) row.findViewById(android.R.id.text2)).setText(line);
                 return row;
             }
         };
         listPledges.setAdapter(adapter);
         listPledges.setOnItemClickListener((parent, view, position, id) -> showActions(items.get(position)));
+    }
+
+    /** What the donor needs to know about the shared copy, including the code to show at the hospital. */
+    private String shareLine(Pledge p) {
+        String state;
+        if (Pledge.REMOTE_CONFIRMED.equals(p.getRemoteStatus())) {
+            state = getString(R.string.pledge_remote_confirmed);
+        } else if (Pledge.REMOTE_DID_NOT_ATTEND.equals(p.getRemoteStatus())) {
+            state = getString(R.string.pledge_remote_missed);
+        } else if (!p.isSynced()) {
+            state = getString(R.string.pledge_share_waiting);
+        } else {
+            state = getString(R.string.pledge_share_sent);
+        }
+        return getString(R.string.pledge_share_line, p.getCode(), state);
     }
 
     private String statusLabel(String status) {
@@ -240,15 +274,27 @@ public class PledgeActivity extends AppCompatActivity {
         }
     }
 
+    /** Shows the saved pledges at once, then asks the hospital's answers and shows them if they changed. */
     private void reload() {
         worker.execute(() -> {
-            List<Pledge> loaded = pledges.list(userId);
-            runOnUiThread(() -> {
-                items.clear();
-                items.addAll(loaded);
-                adapter.notifyDataSetChanged();
-                tvEmpty.setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
-            });
+            showSaved();
+            try {
+                if (PledgeSync.refreshAnswers(this, userId) > 0) {
+                    showSaved();
+                }
+            } catch (java.io.IOException | RuntimeException ignored) {
+                // offline: the last known answers stay on screen
+            }
+        });
+    }
+
+    private void showSaved() {
+        List<Pledge> loaded = pledges.list(userId);
+        runOnUiThread(() -> {
+            items.clear();
+            items.addAll(loaded);
+            adapter.notifyDataSetChanged();
+            tvEmpty.setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
         });
     }
 
@@ -266,7 +312,7 @@ public class PledgeActivity extends AppCompatActivity {
             labels.add(getString(R.string.pledge_action_donated));
             actions.add(() -> change(p, Pledge.STATUS_COMPLETED));
             labels.add(getString(R.string.pledge_action_cancel));
-            actions.add(() -> change(p, Pledge.STATUS_CANCELLED));
+            actions.add(() -> cancelPledge(p));
         }
         labels.add(getString(R.string.action_delete));
         actions.add(() -> remove(p));
@@ -285,10 +331,25 @@ public class PledgeActivity extends AppCompatActivity {
         });
     }
 
+    private void cancelPledge(Pledge p) {
+        worker.execute(() -> {
+            pledges.cancel(userId, p.getId()); // a shared pledge is marked to send the cancellation
+            PledgeScheduler.cancel(this, p.getId());
+            if (p.isShared()) {
+                PledgeScheduler.syncNow(this, userId);
+            }
+            runOnUiThread(this::reload);
+        });
+    }
+
+    /** Deleting a shared pledge also removes the shared copy, so the donor can withdraw it. */
     private void remove(Pledge p) {
         worker.execute(() -> {
             pledges.delete(userId, p.getId());
             PledgeScheduler.cancel(this, p.getId());
+            if (p.isShared() && p.getRemoteId() != null) {
+                PledgeScheduler.withdrawLater(this, p);
+            }
             runOnUiThread(this::reload);
         });
     }

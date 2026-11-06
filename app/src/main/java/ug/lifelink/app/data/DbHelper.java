@@ -22,9 +22,24 @@ public class DbHelper extends SQLiteOpenHelper {
 
     public static final String T_PLEDGES = "pledges";
     public static final String C_PLANNED_DATE = "planned_date";
+    public static final String C_REMOTE_PLEDGE_ID = "remote_id";
+    public static final String C_CODE = "code";
+    public static final String C_SHARED = "shared";
+    public static final String C_SYNCED = "synced";
+    public static final String C_REMOTE_STATUS = "remote_status";
+
+    // Added in version 7. The same text is used by createPledges and by the upgrade step.
+    private static final String[] PLEDGE_SHARING_DDL = {
+            C_REMOTE_PLEDGE_ID + " TEXT",
+            C_CODE + " TEXT",
+            C_SHARED + " INTEGER NOT NULL DEFAULT 0 CHECK (" + C_SHARED + " IN (0,1))",
+            C_SYNCED + " INTEGER NOT NULL DEFAULT 0 CHECK (" + C_SYNCED + " IN (0,1))",
+            C_REMOTE_STATUS + " TEXT CHECK (" + C_REMOTE_STATUS + " IS NULL OR " + C_REMOTE_STATUS
+                    + " IN ('PLANNED','CANCELLED','CONFIRMED','DID_NOT_ATTEND'))"
+    };
 
     public static final String DB_NAME = "lifelink.db";
-    public static final int DB_VERSION = 6;
+    public static final int DB_VERSION = 7;
 
     // users
     public static final String T_USERS = "users";
@@ -171,7 +186,8 @@ public class DbHelper extends SQLiteOpenHelper {
                 + C_PLANNED_DATE + " TEXT NOT NULL CHECK (" + C_PLANNED_DATE + " GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'), "
                 + C_STATUS + " TEXT NOT NULL CHECK (" + C_STATUS
                 + " IN ('PLANNED','COMPLETED','MISSED','CANCELLED')), "
-                + C_CREATED_AT + " INTEGER NOT NULL)");
+                + C_CREATED_AT + " INTEGER NOT NULL, "
+                + String.join(", ", PLEDGE_SHARING_DDL) + ")");
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_pledges_user ON " + T_PLEDGES
                 + "(" + C_USER_ID + ", " + C_PLANNED_DATE + ")");
     }
@@ -201,8 +217,14 @@ public class DbHelper extends SQLiteOpenHelper {
             createAlertLog(db);
         }
         if (oldVersion < 6) {
-            // Version 6 (Milestone 4): planned donations (pledges).
+            // Version 6 (Milestone 4): planned donations (pledges). createPledges builds the
+            // newest shape, so no version 7 step is needed after it.
             createPledges(db);
+        } else if (oldVersion < 7) {
+            // Version 7 (Milestone 4): a pledge can be shared with a hospital.
+            for (String column : PLEDGE_SHARING_DDL) {
+                db.execSQL("ALTER TABLE " + T_PLEDGES + " ADD COLUMN " + column);
+            }
         }
     }
 }

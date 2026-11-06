@@ -234,13 +234,14 @@
     <!-- Pledges: a donation the donor plans. Stays on this phone. -->
     <string name="menu_pledge">Plan a donation</string>
     <string name="title_pledges">Plan a donation</string>
-    <string name="pledge_intro">Choose where and when you plan to donate. LifeLink reminds you at 8:00 that morning. This plan stays on this phone and is not a confirmed donation.</string>
+    <string name="pledge_intro">Choose where and when you plan to donate. LifeLink reminds you at 8:00 that morning. A plan is not a confirmed donation: only the hospital can confirm one.</string>
     <string name="pledge_save">Save plan</string>
     <string name="pledge_empty">No planned donations yet.</string>
     <string name="pledge_row">%1$s, %2$s</string>
     <string name="pledge_status_planned">Planned</string>
     <string name="pledge_status_completed">Marked as donated by you</string>
     <string name="pledge_status_missed">Day passed, not marked</string>
+    <string name="pledge_status_confirmed">Confirmed by the hospital</string>
     <string name="pledge_status_cancelled">Cancelled</string>
     <string name="pledge_action_calendar">Add to calendar</string>
     <string name="pledge_action_donated">I donated</string>
@@ -261,4 +262,13 @@
     <string name="menu_language">Language / Olulimi</string>
     <string name="language_english">English</string>
     <string name="language_luganda">Oluganda (Luganda)</string>
+
+    <!-- Sharing a pledge with the hospital (only when the donor ticks the box) -->
+    <string name="pledge_share_label">Tell the hospital I am coming</string>
+    <string name="pledge_share_detail">If you tick this, the hospital can see a random code, the day you chose and its status. It does not see your name, phone number or blood group. You can delete the plan later to take the shared copy away. If you leave it unticked, nothing leaves this phone.</string>
+    <string name="pledge_share_line">Code %1$s: %2$s</string>
+    <string name="pledge_share_waiting">waiting to be sent</string>
+    <string name="pledge_share_sent">shared with the hospital</string>
+    <string name="pledge_remote_confirmed">confirmed by the hospital</string>
+    <string name="pledge_remote_missed">the hospital marked it as not attended</string>
 </resources>

@@ -89,6 +89,20 @@
         android:layout_marginTop="@dimen/space_xs"
         android:visibility="gone" />
 
+    <CheckBox
+        android:id="@+id/chkShare"
+        style="@style/LL.Text.Body"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="@dimen/touch_target"
+        android:text="@string/pledge_share_label" />
+
+    <TextView
+        style="@style/LL.Text.Caption"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/pledge_share_detail" />
+
     <Button
         android:id="@+id/btnPledgeSave"
         android:layout_width="match_parent"

@@ -465,7 +465,7 @@ Why I stayed with native: ______ (for example: the course and exam are Android, 
 - **Why it is separate from donation records.** Donation records are self-reported history and have their own validation and status rules. Mixing a future intention into them would have meant rebuilding that table and its CHECK constraint. A new `pledges` table (database version 6, upgraded without data loss) keeps the two apart.
 - **Reminder.** Saving a pledge starts one WorkManager job set for 08:00 on the planned day. When it runs it reads the pledge again, so a cancelled, completed or deleted pledge never produces a reminder. Cancelling or deleting also cancels the job. If 08:00 has already passed on the chosen day, the screen says no reminder was set. Android may delay the job a little, which is acceptable for a morning reminder.
 - **Calendar.** "Add to calendar" opens the phone's calendar app with the event filled in (an `ACTION_INSERT` intent). The donor taps Save there, so the app needs no calendar permission.
-- **Not built.** A reminder to the hospital and a follow-up list need the pledge to reach a server, with the donor's consent, and a hospital console to read it. See the limitations.
+- **Hospital side.** Added in section 10l (optional sharing with consent).
 - **Tests.** `PledgePolicyTest` (10 cases: date window, missed status, reminder timing). The database checks (user separation, bad date, bad status, cascade delete, upgrade from version 5) were run against a real SQLite engine. The screen, the notification and the calendar hand-off were not run on a phone by the assistant and must be tested by you.
 
 ---
@@ -479,6 +479,17 @@ Why I stayed with native: ______ (for example: the course and exam are Android, 
 
 ---
 
+## 10l. Pledge sharing and hospital console (DRAFT, rewrite in your own words)
+
+- **What it is.** On the plan screen the donor may tick "Share this plan with the hospital". Only then is the plan sent. What is sent: a random code (for example K7Q-2M4), the planned day, the status and an anonymous owner id. No name, phone number or blood group is sent. Without the tick the plan stays on the phone.
+- **How.** The app signs in to Firebase anonymously over REST and writes to `/pledges/<facilityId>/<pledgeId>` in the Realtime Database (`pledge/PledgeRemote`, `PledgeSync`, `PledgeSyncWorker`). The job needs a network and retries later when offline. Cancelling updates the shared copy (PLANNED to CANCELLED only). Deleting a shared plan withdraws the copy. When the screen opens it reads the hospital's answer and shows "Confirmed by the hospital" or "Did not attend".
+- **Rules.** `firebase/database.rules.json`: a pledge can be created only for an existing facility and only by its owner; fields cannot be changed afterwards except the status; staff listed under `/staff/<uid>` can set CONFIRMED or DID_NOT_ATTEND for their own facility only; `/requests` stays public read. Tested with a rules simulator (`firebase/rules-test.js`, 56 checks), not against the live project.
+- **Console.** `firebase/console/index.html`: staff sign in with email and password, see their facility's pledges, filter Due today, Upcoming, Follow-up (day passed) and Done, search by code, and confirm or mark did not attend. Opening it shows a banner and a tab-title count of plans due today.
+- **Limits.** There is no free push or email to a hospital, so the reminder is the console view when staff open it. The anonymous id belongs to one install, so clearing app data orphans old shared plans. Anonymous accounts could create spam plans for a real facility. USSD and SMS need paid shortcodes and a server, so they are future work.
+- **Tests.** `PledgeSharingTest` (10 cases: code format, JSON body, status parsing, token freshness), database checks on a real SQLite engine including the upgrade from version 6 to 7. The network calls and the screen were not run on a phone or against the live Firebase project by the assistant.
+
+---
+
 ## 11. AI tools used
 
 | Tool | What it helped build |
@@ -489,6 +500,7 @@ Why I stayed with native: ______ (for example: the course and exam are Android, 
 | Claude (M4, after phone test) | Drafted `Facilities`, the facility dropdown, the automatic location dialog and the reconnect sync. I can explain and change these. |
 | Claude (planned donations, reminder, calendar) | Wrote the pledge storage, policy, reminder job, calendar hand-off, screen and tests (section 10j). I must be able to explain each class and change it live. |
 | Claude (Luganda interface) | Imported the reviewed spreadsheet into `values-lg`, added the language switch and the placeholder test (section 10k). The translations themselves were AI-assisted and are unconfirmed. |
+| Claude (pledge sharing) | Wrote the REST sync classes, database version 7 upgrade, Firebase rules, rules tests and the staff console (section 10l). I must be able to explain and change these. |
 | Claude (M4 write-up drafts) | Drafted the first version of README sections 10f to 10i (API explanation, test table, bug log, release notes, stack comparison). I will rewrite them and fill the results myself. |
 | Claude (M4, B2) | Drafted `AlertRules`, `AlertLog`, `RequestChecker`, the WorkManager job and scheduler, `AlertNotifier`, the version 5 upgrade, `DemoActivity` and their tests. I can explain and change these. |
 
@@ -501,6 +513,6 @@ Why I stayed with native: ______ (for example: the course and exam are Android, 
 - If the phone is rotated at the exact moment a record is being saved, the save still completes but the screen is rebuilt, so the confirmation message may not show.
 - Accounts and personal records are stored on the phone only, so they are not shared between devices. Only the public request list comes from the network.
 - The request feed is read-only in the app. Requests are added by an administrator in the Firebase console (hospital posting and sign-in are not built).
-- Planned donations and their reminders exist on the donor's phone only. Hospitals are not told about a pledge, so there is no hospital reminder or follow-up list yet.
+- Planned donations are shared with a hospital only if the donor ticks the box. Hospitals get no push or email; staff see due and follow-up lists in the console when they open it.
 - Alerts need a connection to learn about new requests, and the background job can only use the last saved position.
 - Without a position (permission denied, or none saved yet) distances are not shown and the radius filter is not applied.
