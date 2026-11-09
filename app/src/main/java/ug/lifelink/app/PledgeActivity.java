@@ -34,13 +34,16 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 
+import ug.lifelink.app.data.AppData;
 import ug.lifelink.app.data.Facilities;
 import ug.lifelink.app.data.Pledges;
 import ug.lifelink.app.location.LocationStore;
+import ug.lifelink.app.model.BloodRecord;
 import ug.lifelink.app.model.Pledge;
 import ug.lifelink.app.pledge.CalendarLink;
 import ug.lifelink.app.pledge.PledgeScheduler;
 import ug.lifelink.app.pledge.PledgeSync;
+import ug.lifelink.app.util.Eligibility;
 import ug.lifelink.app.util.PledgeCode;
 import ug.lifelink.app.util.PledgePolicy;
 
@@ -181,6 +184,21 @@ public class PledgeActivity extends AppCompatActivity {
         tvDate.setText(selected == null ? getString(R.string.error_date_required) : shown.format(selected));
     }
 
+    /** First day the donor may give blood again, from the last donation on record; null if none. */
+    private LocalDate earliestEligibleDay() {
+        long last = -1L;
+        for (BloodRecord r : AppData.records(this).listFor(userId)) {
+            if (BloodRecord.KIND_DONATION.equals(r.getKind()) && r.getCreatedAt() > last) {
+                last = r.getCreatedAt();
+            }
+        }
+        if (last < 0) {
+            return null;
+        }
+        return Instant.ofEpochMilli(last).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                .plusDays(Eligibility.INTERVAL_DAYS);
+    }
+
     private void save() {
         layoutFacility.setError(null);
         String facility = txtFacility.getText() == null ? "" : txtFacility.getText().toString().trim();
@@ -188,10 +206,10 @@ public class PledgeActivity extends AppCompatActivity {
             layoutFacility.setError(getString(R.string.error_facility_pick));
             return;
         }
-        int problem = PledgePolicy.checkDate(selected, LocalDate.now());
-        if (problem != PledgePolicy.OK) {
-            tvError.setText(problem == PledgePolicy.ERR_NO_DATE ? R.string.error_date_required
-                    : problem == PledgePolicy.ERR_PAST ? R.string.error_pledge_past
+        int basicProblem = PledgePolicy.checkDate(selected, LocalDate.now());
+        if (basicProblem != PledgePolicy.OK) {
+            tvError.setText(basicProblem == PledgePolicy.ERR_NO_DATE ? R.string.error_date_required
+                    : basicProblem == PledgePolicy.ERR_PAST ? R.string.error_pledge_past
                     : R.string.error_pledge_far);
             tvError.setVisibility(View.VISIBLE);
             return;
@@ -200,6 +218,15 @@ public class PledgeActivity extends AppCompatActivity {
         final boolean share = chkShare.isChecked();
         worker.execute(() -> {
             try {
+                LocalDate earliest = earliestEligibleDay();
+                if (earliest != null && selected.isBefore(earliest)) {
+                    final LocalDate when = earliest;
+                    runOnUiThread(() -> {
+                        tvError.setText(getString(R.string.error_pledge_not_eligible, shown.format(when)));
+                        tvError.setVisibility(View.VISIBLE);
+                    });
+                    return;
+                }
                 String remoteId = share ? UUID.randomUUID().toString() : null;
                 String code = share ? PledgeCode.generate(new Random()) : null;
                 long id = pledges.add(userId, facility, date, System.currentTimeMillis(), remoteId, code);

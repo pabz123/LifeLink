@@ -71,4 +71,27 @@ public class PledgePolicyTest {
         LocalDateTime now = LocalDateTime.of(2026, 11, 3, 6, 30);
         assertTrue(PledgePolicy.reminderDelayMillis(LocalDate.of(2026, 11, 3), now) > 0);
     }
+
+    @Test
+    public void dayBeforeEligibilityIsRefused() {
+        assertEquals(PledgePolicy.ERR_NOT_ELIGIBLE,
+                PledgePolicy.checkDate(TODAY.plusDays(5), TODAY, TODAY.plusDays(20)));
+    }
+
+    @Test
+    public void eligibleDayAndLaterAreAccepted() {
+        assertEquals(PledgePolicy.OK, PledgePolicy.checkDate(TODAY.plusDays(20), TODAY, TODAY.plusDays(20)));
+        assertEquals(PledgePolicy.OK, PledgePolicy.checkDate(TODAY.plusDays(30), TODAY, TODAY.plusDays(20)));
+    }
+
+    @Test
+    public void noDonationOnRecordMeansNoEligibilityLimit() {
+        assertEquals(PledgePolicy.OK, PledgePolicy.checkDate(TODAY, TODAY, null));
+    }
+
+    @Test
+    public void pastDayIsStillReportedAsPast() {
+        assertEquals(PledgePolicy.ERR_PAST,
+                PledgePolicy.checkDate(TODAY.minusDays(1), TODAY, TODAY.plusDays(20)));
+    }
 }

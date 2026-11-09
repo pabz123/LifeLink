@@ -249,6 +249,7 @@
     <string name="pledge_saved_reminder">Plan saved. You will get a reminder at 8:00 that day.</string>
     <string name="pledge_saved_no_reminder">Plan saved. No reminder was set because 8:00 today has passed.</string>
     <string name="error_pledge_past">The day cannot be in the past.</string>
+    <string name="error_pledge_not_eligible">You can donate again from %1$s. Choose that day or a later one.</string>
     <string name="error_pledge_far">Choose a day within the next 90 days.</string>
     <string name="error_no_calendar">No calendar app was found on this device.</string>
     <string name="pledge_channel_name">Donation reminders</string>

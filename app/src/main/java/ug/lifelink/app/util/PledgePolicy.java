@@ -18,6 +18,7 @@ public final class PledgePolicy {
     public static final int ERR_NO_DATE = 1;
     public static final int ERR_PAST = 2;
     public static final int ERR_TOO_FAR = 3;
+    public static final int ERR_NOT_ELIGIBLE = 4;
 
     private PledgePolicy() {
     }
@@ -32,6 +33,21 @@ public final class PledgePolicy {
         }
         if (planned.isAfter(today.plusDays(MAX_DAYS_AHEAD))) {
             return ERR_TOO_FAR;
+        }
+        return OK;
+    }
+
+    /**
+     * As {@link #checkDate(LocalDate, LocalDate)}, and also refuses a day before the donor may
+     * donate again. {@code earliestEligible} is null when the donor has no donation on record.
+     */
+    public static int checkDate(LocalDate planned, LocalDate today, LocalDate earliestEligible) {
+        int basic = checkDate(planned, today);
+        if (basic != OK) {
+            return basic;
+        }
+        if (earliestEligible != null && planned.isBefore(earliestEligible)) {
+            return ERR_NOT_ELIGIBLE;
         }
         return OK;
     }
