@@ -2,35 +2,69 @@
   "rules": {
     ".read": false,
     ".write": false,
-
     "requests": {
       ".read": true,
-      ".write": false
+      "$rid": {
+        ".write": "auth != null && root.child('staff').child(auth.uid).child('facilityId').exists() && ((!data.exists() && newData.exists() && newData.child('facilityId').val() === root.child('staff').child(auth.uid).child('facilityId').val()) || (data.exists() && data.child('facilityId').val() === root.child('staff').child(auth.uid).child('facilityId').val() && (!newData.exists() || newData.child('facilityId').val() === data.child('facilityId').val())))",
+        ".validate": "newData.hasChildren(['facility', 'facilityId', 'bloodGroup', 'units', 'urgency', 'postedAt', 'expiresAt', 'verified']) && newData.child('facility').val() === root.child('facilities').child(newData.child('facilityId').val()).child('name').val() && newData.child('verified').val() === true && newData.child('expiresAt').val() > newData.child('postedAt').val() && (data.exists() || (newData.child('postedAt').val() <= now + 300000 && newData.child('postedAt').val() >= now - 300000))",
+        "facility": {
+          ".validate": "newData.isString()"
+        },
+        "facilityId": {
+          ".validate": "newData.isString()"
+        },
+        "bloodGroup": {
+          ".validate": "newData.isString() && newData.val().matches(/^(A|B|AB|O)[+-]$/)"
+        },
+        "units": {
+          ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 20 && newData.val() % 1 === 0"
+        },
+        "urgency": {
+          ".validate": "newData.isString() && (newData.val() === 'CRITICAL' || newData.val() === 'URGENT' || newData.val() === 'ROUTINE')"
+        },
+        "note": {
+          ".validate": "newData.isString() && newData.val().length <= 120"
+        },
+        "contactPhone": {
+          ".validate": "newData.isString() && newData.val().matches(/^[+]?[0-9]{9,15}$/)"
+        },
+        "lat": {
+          ".validate": "newData.isNumber() && newData.val() >= -90 && newData.val() <= 90"
+        },
+        "lng": {
+          ".validate": "newData.isNumber() && newData.val() >= -180 && newData.val() <= 180"
+        },
+        "verified": {
+          ".validate": "newData.isBoolean()"
+        },
+        "postedAt": {
+          ".validate": "newData.isNumber() && (!data.exists() || newData.val() === data.val())"
+        },
+        "expiresAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
     },
-
     "facilities": {
       ".read": true,
       ".write": false
     },
-
     "staff": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         ".write": false
       }
     },
-
     "pledges": {
       "$facilityId": {
         ".read": "auth != null && root.child('staff').child(auth.uid).child('facilityId').val() === $facilityId",
-
         "$pledgeId": {
           ".read": "auth != null && data.child('ownerUid').val() === auth.uid",
-
           ".write": "auth != null && ((!data.exists() && newData.exists() && root.child('facilities').child($facilityId).exists() && newData.child('ownerUid').val() === auth.uid && newData.child('status').val() === 'PLANNED') || (data.exists() && newData.exists() && data.child('ownerUid').val() === auth.uid && (newData.child('status').val() === data.child('status').val() || (data.child('status').val() === 'PLANNED' && newData.child('status').val() === 'CANCELLED'))) || (data.exists() && !newData.exists() && data.child('ownerUid').val() === auth.uid) || (data.exists() && newData.exists() && root.child('staff').child(auth.uid).child('facilityId').val() === $facilityId && (newData.child('status').val() === 'CONFIRMED' || newData.child('status').val() === 'DID_NOT_ATTEND')))",
-
           ".validate": "newData.hasChildren(['ownerUid', 'donorCode', 'plannedDate', 'status', 'createdAt'])",
-
           "ownerUid": {
             ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val())"
           },

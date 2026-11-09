@@ -2,8 +2,8 @@ const targaryen = require('targaryen'); // setup: npm i targaryen   run: node ru
 const rules = require('./database.rules.json');
 const F = 'mbarara-regional-referral-hospital', K = 'kabale-regional-referral-hospital';
 const data = {
-  requests: { r1: { facility: 'x' } },
-  facilities: { [F]: { name: 'M' }, [K]: { name: 'K' } },
+  requests: { r1: { facility: 'M', facilityId: F, bloodGroup: 'O-', units: 2, urgency: 'URGENT', postedAt: 1700000000000, expiresAt: 1700086400000, verified: true }, legacy: { facility: 'Old', bloodGroup: 'A+', units: 1 } },
+  facilities: { [F]: { name: 'M', lat: -0.6, lng: 30.6 }, [K]: { name: 'K', lat: -1.2, lng: 29.9 } },
   staff: { staffM: { facilityId: F }, staffK: { facilityId: K } },
   pledges: { [F]: { p1: { ownerUid: 'donor1', donorCode: 'K7Q-2M4', plannedDate: '2026-11-20', status: 'PLANNED', createdAt: 1700000000000 } } }
 };
@@ -71,8 +71,30 @@ t('donor can read the confirmation', can(confirmed.as({ uid: 'donor1' }).read(`/
 
 // other areas
 t('requests readable without sign-in', can(as(null).read('/requests')));
-t('requests not writable by staff', !can(as('staffM').write('/requests/r2', { a: 1 })));
-t('requests not writable by donors', !can(as('donor1').write('/requests/r2', { a: 1 })));
+const NOW = Date.now();
+const req = (o = {}) => Object.assign({ facility: 'M', facilityId: F, bloodGroup: 'A+', units: 3, urgency: 'CRITICAL', note: 'Urgent', contactPhone: '+256700000000', lat: -0.6, lng: 30.6, verified: true, postedAt: NOW, expiresAt: NOW + 86400000 }, o);
+const wr = (uid, path, v) => db.as(uid ? { uid } : null).write(path, v, { now: NOW });
+t('staff can post a request for their own facility', can(wr('staffM', '/requests/n1', req())));
+t('staff cannot post as another facility', !can(wr('staffM', '/requests/n1', req({ facility: 'K', facilityId: K }))));
+t('staff cannot use another facility name', !can(wr('staffM', '/requests/n1', req({ facility: 'K' }))));
+t('donors cannot post', !can(wr('donor1', '/requests/n1', req())));
+t('signed-out cannot post', !can(wr(null, '/requests/n1', req())));
+t('request needs verified true', !can(wr('staffM', '/requests/n1', req({ verified: false }))));
+t('bad blood group refused', !can(wr('staffM', '/requests/n1', req({ bloodGroup: 'Z+' }))));
+t('units 0 refused', !can(wr('staffM', '/requests/n1', req({ units: 0 }))));
+t('units 21 refused', !can(wr('staffM', '/requests/n1', req({ units: 21 }))));
+t('units 2.5 refused', !can(wr('staffM', '/requests/n1', req({ units: 2.5 }))));
+t('bad urgency refused', !can(wr('staffM', '/requests/n1', req({ urgency: 'NOW' }))));
+t('long note refused', !can(wr('staffM', '/requests/n1', req({ note: 'x'.repeat(121) }))));
+t('bad phone refused', !can(wr('staffM', '/requests/n1', req({ contactPhone: 'call me' }))));
+t('expiry before posting refused', !can(wr('staffM', '/requests/n1', req({ expiresAt: NOW - 1 }))));
+t('backdated posting refused', !can(wr('staffM', '/requests/n1', req({ postedAt: NOW - 3600000, expiresAt: NOW + 1000 }))));
+t('extra field refused', !can(wr('staffM', '/requests/n1', Object.assign(req(), { hack: 1 }))));
+t('staff can close their own request', can(wr('staffM', '/requests/r1', null)));
+t('other facility staff cannot close it', !can(wr('staffK', '/requests/r1', null)));
+t('donor cannot close it', !can(wr('donor1', '/requests/r1', null)));
+t('old requests without an owner cannot be closed by staff', !can(wr('staffM', '/requests/legacy', null)));
+t('staff cannot move a request to another facility', !can(wr('staffM', '/requests/r1', req({ facility: 'K', facilityId: K, postedAt: 1700000000000 }))));
 t('facilities readable', can(as(null).read('/facilities')));
 t('facilities not writable', !can(as('staffM').write('/facilities/new', { name: 'x' })));
 t('staff entry readable by its owner', can(as('staffM').read('/staff/staffM')));
