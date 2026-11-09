@@ -1,78 +1,49 @@
 package ug.lifelink.app.data;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import ug.lifelink.app.model.BloodRecord;
 import ug.lifelink.app.util.Validators;
 
 /**
- * Milestone 2 record store: the records live in memory, in a collection the app changes from
- * code (add, edit, delete). Milestone 3 replaces the inside of this class with SQLite and
- * keeps the same method names, so the screens do not change.
+ * The rules for records. This class decides what may be saved (validation) and hands the
+ * actual storing to a RecordStore: SQLite in the app (Milestone 3), a plain list in unit tests.
+ * Milestone 2 kept the records in memory; the screens did not change, because the method
+ * names here stayed the same.
  *
  * Authorisation is built into the shape of the API: every method takes the signed-in user's
- * id and only ever looks inside that user's own list. A record id that belongs to someone
- * else is simply "not found". Nothing here can return another user's row.
+ * id and the store only ever looks at that user's own rows. A record id that belongs to
+ * someone else is simply "not found". Nothing here can return another user's row.
  *
- * Records live as long as the app process. They are lost when Android ends the process;
- * surviving that is exactly what Milestone 3's database adds.
+ * With the SQLite store these methods touch the disk, so callers must run them OFF the main
+ * thread.
  *
  * Pure Java (no Android classes), so it is unit tested on a laptop.
  */
 public final class RecordRepository {
 
-    private static final RecordRepository INSTANCE = new RecordRepository();
+    private final RecordStore store;
 
-    private final Map<Long, List<BloodRecord>> recordsByUser = new HashMap<>();
-    private final Set<Long> seededUsers = new HashSet<>();
-    private long nextId = 1000L;
-
-    /** Newest record first; equal dates fall back to the newest id. */
-    private static final Comparator<BloodRecord> NEWEST_FIRST = (a, b) -> {
-        int byDate = Long.compare(b.getCreatedAt(), a.getCreatedAt());
-        return byDate != 0 ? byDate : Long.compare(b.getId(), a.getId());
-    };
-
-    public static RecordRepository getInstance() {
-        return INSTANCE;
-    }
-
-    /** Package-visible so tests can build an isolated repository. */
-    RecordRepository() {
+    public RecordRepository(RecordStore store) {
+        this.store = store;
     }
 
     /**
-     * Gives a new user the sample records once. If the user later deletes them all, they are
-     * not put back, because the user is recorded as already seeded.
+     * Gives a new user the sample records once, ever. If the user later deletes them all, they
+     * are not put back, because the store remembers that this user was already seeded.
      */
-    public synchronized void seedOnce(long userId, List<BloodRecord> sample) {
-        if (seededUsers.add(userId)) {
-            listOf(userId).addAll(sample);
-        }
+    public void seedOnce(long userId, List<BloodRecord> sample) {
+        store.seedOnce(userId, sample);
     }
 
-    /** A copy of this user's records, newest first. Changing the copy changes nothing stored. */
-    public synchronized List<BloodRecord> listFor(long userId) {
-        List<BloodRecord> copy = new ArrayList<>(listOf(userId));
-        Collections.sort(copy, NEWEST_FIRST);
-        return copy;
+    /** This user's records, newest first. Changing the returned list changes nothing stored. */
+    public List<BloodRecord> listFor(long userId) {
+        return store.listFor(userId);
     }
 
     /** Returns the record only if it belongs to this user, otherwise null. */
-    public synchronized BloodRecord get(long userId, long recordId) {
-        for (BloodRecord record : listOf(userId)) {
-            if (record.getId() == recordId) {
-                return record;
-            }
-        }
-        return null;
+    public BloodRecord get(long userId, long recordId) {
+        return store.find(userId, recordId);
     }
 
     /**
@@ -82,55 +53,35 @@ public final class RecordRepository {
      *                                  screens already check these, so this only fires if a
      *                                  screen is bypassed or has a bug.
      */
-    public synchronized BloodRecord add(long userId, String kind, String bloodGroup, int units,
-                                        String facility, String status, String note,
-                                        long createdAt, long nowMillis) {
+    public BloodRecord add(long userId, String kind, String bloodGroup, int units,
+                           String facility, String status, String note,
+                           long createdAt, long nowMillis) {
         check(kind, bloodGroup, units, facility, status, note, createdAt, nowMillis);
-        BloodRecord record = new BloodRecord(nextId++, userId, kind, bloodGroup, units,
-                facility.trim(), status, note == null ? "" : note.trim(), createdAt);
-        listOf(userId).add(record);
-        return record;
+        return store.insert(userId, kind, bloodGroup, units, facility.trim(), status,
+                note == null ? "" : note.trim(), createdAt);
     }
 
     /**
      * Replaces the editable fields of one of this user's records. The id, owner and kind never
      * change. Returns false when the user has no such record.
+     *
+     * @throws IllegalArgumentException when any value breaks the rules in Validators
      */
-    public synchronized boolean update(long userId, long recordId, String bloodGroup, int units,
-                                       String facility, String status, String note,
-                                       long createdAt, long nowMillis) {
-        List<BloodRecord> list = listOf(userId);
-        for (int i = 0; i < list.size(); i++) {
-            BloodRecord old = list.get(i);
-            if (old.getId() == recordId) {
-                check(old.getKind(), bloodGroup, units, facility, status, note, createdAt, nowMillis);
-                list.set(i, new BloodRecord(old.getId(), userId, old.getKind(), bloodGroup, units,
-                        facility.trim(), status, note == null ? "" : note.trim(), createdAt));
-                return true;
-            }
+    public boolean update(long userId, long recordId, String bloodGroup, int units,
+                          String facility, String status, String note,
+                          long createdAt, long nowMillis) {
+        BloodRecord old = store.find(userId, recordId);
+        if (old == null) {
+            return false;
         }
-        return false;
+        check(old.getKind(), bloodGroup, units, facility, status, note, createdAt, nowMillis);
+        return store.update(userId, recordId, bloodGroup, units, facility.trim(), status,
+                note == null ? "" : note.trim(), createdAt);
     }
 
     /** Removes one of this user's records. Returns false when the user has no such record. */
-    public synchronized boolean delete(long userId, long recordId) {
-        List<BloodRecord> list = listOf(userId);
-        for (int i = 0; i < list.size(); i++) {
-            if (list.get(i).getId() == recordId) {
-                list.remove(i);
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private List<BloodRecord> listOf(long userId) {
-        List<BloodRecord> list = recordsByUser.get(userId);
-        if (list == null) {
-            list = new ArrayList<>();
-            recordsByUser.put(userId, list);
-        }
-        return list;
+    public boolean delete(long userId, long recordId) {
+        return store.delete(userId, recordId);
     }
 
     private static void check(String kind, String bloodGroup, int units, String facility,

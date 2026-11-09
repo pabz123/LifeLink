@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#231416">
+<title>LifeLink Console</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 4C22 18 12 28 12 40a20 20 0 0 0 40 0C52 28 42 18 32 4z' fill='%23B71C1C'/%3E%3Cpath d='M32 46s-9-6-9-12a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6-9 12-9 12z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg:#FBF6F3; --ink:#231416; --muted:#5B4A4C; --card:#FFFDFB; --line:#EBDAD5; --field:#C9B3AE;
+    --red:#B71C1C; --red-dark:#7F1212; --green:#1B5E20; --amber:#7A4B00; --dark:#231416;
+  }
+  * { box-sizing:border-box; }
+  html { -webkit-text-size-adjust:100%; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:var(--bg); color:var(--ink); line-height:1.45; }
+  [hidden] { display:none !important; }
+  :focus-visible { outline:3px solid #1A73E8; outline-offset:2px; }
+  h1,h2,h3 { margin:0; line-height:1.2; }
+  .muted { color:var(--muted); font-size:14px; margin:0; }
+  .error { color:var(--red-dark); font-weight:600; font-size:14px; min-height:1.3em; margin:0; }
+
+  label { display:flex; flex-direction:column; gap:6px; font-size:14px; font-weight:600; }
+  input, select { min-height:46px; padding:0 12px; border:1px solid var(--field); border-radius:10px; font:inherit; font-size:16px; background:#fff; color:var(--ink); width:100%; }
+  input:focus, select:focus { border-color:var(--red); }
+  button { font:inherit; min-height:46px; padding:0 18px; border-radius:10px; border:1px solid var(--red); background:#fff; color:var(--red); font-weight:700; font-size:15px; cursor:pointer; }
+  button:hover:not(:disabled) { background:#FDECEA; }
+  button.primary { background:var(--red); color:#fff; }
+  button.primary:hover:not(:disabled) { background:var(--red-dark); }
+  button:disabled { opacity:.6; cursor:default; }
+  button.link { border:0; background:none; min-height:36px; padding:0 4px; color:var(--red); text-decoration:underline; font-weight:600; }
+  .btn-small { min-height:40px; padding:0 14px; font-size:14px; }
+
+  /* sign in */
+  #signin { min-height:100vh; display:grid; grid-template-columns:1.1fr 1fr; }
+  .brand { background:linear-gradient(160deg,#B71C1C 0%,#6E0E0E 100%); color:#FBF6F3; padding:56px 56px; display:flex; flex-direction:column; justify-content:space-between; gap:32px; }
+  .brand .logo { display:flex; align-items:center; gap:12px; font-size:24px; font-weight:700; }
+  .brand h2 { font-size:34px; max-width:15ch; }
+  .brand p { margin:14px 0 0; max-width:42ch; font-size:17px; color:#F3D9D4; }
+  .brand ul { margin:0; padding:0; list-style:none; display:grid; gap:12px; font-size:15px; color:#F3D9D4; }
+  .brand li::before { content:""; display:inline-block; width:8px; height:8px; border-radius:50%; background:#FF8A80; margin-right:10px; }
+  .panel { display:flex; align-items:center; justify-content:center; padding:32px 20px; }
+  .signin-card { width:100%; max-width:400px; display:flex; flex-direction:column; gap:18px; }
+  .signin-card h1 { font-size:28px; }
+  .signin-card form { display:flex; flex-direction:column; gap:16px; }
+  .pw { position:relative; }
+  .pw input { padding-right:84px; }
+  .pw button { position:absolute; right:4px; top:3px; min-height:40px; border:0; background:none; font-size:14px; }
+  .notice { background:#E3F1E4; color:var(--green); border-radius:10px; padding:10px 14px; font-size:14px; font-weight:600; }
+
+  /* app shell */
+  .topbar { background:var(--dark); color:#FBF6F3; padding:14px 24px; display:flex; flex-wrap:wrap; gap:14px; align-items:center; justify-content:space-between; }
+  .topbar .name { font-size:20px; font-weight:700; } .topbar .name span { color:#FF8A80; }
+  .topbar .user { display:flex; align-items:center; gap:14px; font-size:14px; color:#D9C3BE; }
+  .topbar button { background:transparent; color:#FBF6F3; border-color:#6b4f52; min-height:40px; }
+  .topbar button:hover:not(:disabled) { background:#3A2326; }
+  nav.tabs { background:#2f1b1e; padding:0 24px; display:flex; gap:4px; overflow-x:auto; }
+  nav.tabs button { border:0; border-bottom:3px solid transparent; border-radius:0; background:none; color:#D9C3BE; min-height:50px; padding:0 18px; }
+  nav.tabs button:hover:not(:disabled) { background:#3A2326; }
+  nav.tabs button[aria-selected="true"] { color:#fff; border-bottom-color:#FF8A80; }
+  main { max-width:1040px; margin:0 auto; padding:24px 16px 80px; display:flex; flex-direction:column; gap:20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px; display:flex; flex-direction:column; gap:14px; }
+  .banner { background:#FFF1D6; color:var(--amber); font-weight:700; border-radius:10px; padding:12px 16px; margin:0; }
+
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+  .tile { display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-height:84px; padding:14px 16px; text-align:left; background:var(--card); border:1px solid var(--line); border-radius:14px; color:var(--ink); }
+  .tile b { font-size:30px; line-height:1.1; color:var(--red); }
+  .tile span { font-size:14px; color:var(--muted); font-weight:600; }
+  .tile[aria-pressed="true"] { border:2px solid var(--red); background:#FDECEA; }
+
+  .toolbar { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; justify-content:space-between; }
+  .toolbar label { width:180px; }
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; min-width:560px; }
+  th { text-align:left; color:var(--muted); padding:8px 8px; font-size:14px; }
+  td { padding:12px 8px; border-top:1px solid var(--line); vertical-align:middle; }
+  td.actions { display:flex; flex-wrap:wrap; gap:8px; }
+  .empty { text-align:center; color:var(--muted); padding:28px 8px; }
+  .pill { display:inline-block; padding:4px 10px; border-radius:999px; font-size:13px; font-weight:700; white-space:nowrap; }
+  .planned { background:#FFF1D6; color:var(--amber); } .confirmed { background:#E3F1E4; color:var(--green); }
+  .missed { background:#F6DADA; color:var(--red-dark); } .cancelled { background:#ECE6E4; color:var(--muted); }
+  .critical { background:#F6DADA; color:var(--red-dark); } .urgent { background:#FFF1D6; color:var(--amber); } .routine { background:#E3F1E4; color:var(--green); }
+  .code { font-weight:700; letter-spacing:1px; font-size:17px; font-variant-numeric:tabular-nums; }
+  .group { display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:50%; background:var(--red); color:#fff; font-weight:700; }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; }
+  .grid .wide { grid-column:1 / -1; }
+  .hint { font-weight:400; color:var(--muted); font-size:13px; }
+
+  .toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:#231416; color:#fff; padding:12px 20px; border-radius:12px; font-weight:600; font-size:15px; box-shadow:0 6px 24px rgba(0,0,0,.25); z-index:10; max-width:calc(100vw - 32px); }
+  .toast.bad { background:var(--red-dark); }
+
+  @media (max-width:820px) {
+    #signin { grid-template-columns:1fr; }
+    .brand { display:none; }
+    .panel { align-items:flex-start; padding-top:56px; }
+    .topbar, nav.tabs { padding-left:12px; padding-right:12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ Sign in ============ -->
+<div id="signin">
+  <aside class="brand" aria-hidden="false">
+    <div class="logo">
+      <svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4C22 18 12 28 12 40a20 20 0 0 0 40 0C52 28 42 18 32 4z" fill="#fff"/><path d="M32 46s-9-6-9-12a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6-9 12-9 12z" fill="#B71C1C"/></svg>
+      LifeLink Console
+    </div>
+    <div>
+      <h2>Know who is coming before they arrive.</h2>
+      <p>For blood bank and hospital staff. See the donors who plan to visit, confirm donations, and put urgent requests in front of nearby donors.</p>
+    </div>
+    <ul>
+      <li>Donors appear as a random code. No names or phone numbers are shared.</li>
+      <li>Only staff linked to a facility can see its plans.</li>
+      <li>Requests you publish reach the donors' phones.</li>
+    </ul>
+  </aside>
+  <section class="panel">
+    <div class="signin-card">
+      <div>
+        <h1>Staff sign in</h1>
+        <p class="muted" style="margin-top:6px">Use the email your administrator registered for you.</p>
+      </div>
+      <form id="signinForm" novalidate>
+        <label>Email
+          <input id="email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="name@hospital.org" required>
+        </label>
+        <label>Password
+          <span class="pw">
+            <input id="password" type="password" autocomplete="current-password" required>
+            <button type="button" id="togglePw" aria-pressed="false">Show</button>
+          </span>
+        </label>
+        <p id="signinError" class="error" role="alert"></p>
+        <p id="signinNotice" class="notice" role="status" hidden></p>
+        <button id="signinBtn" class="primary" type="submit">Sign in</button>
+      </form>
+      <div><button type="button" id="forgot" class="link">Forgot your password?</button></div>
+      <p class="muted">Only accounts that an administrator has linked to a facility can use this console.</p>
+    </div>
+  </section>
+</div>
+
+<!-- ============ App ============ -->
+<div id="app" hidden>
+  <header class="topbar">
+    <div class="name">LifeLink <span>Console</span></div>
+    <div class="user"><span id="who"></span><button id="signOut" type="button">Sign out</button></div>
+  </header>
+  <nav class="tabs" role="tablist" aria-label="Console sections">
+    <button role="tab" id="tabPledges" aria-selected="true" aria-controls="viewPledges">Planned donations</button>
+    <button role="tab" id="tabRequests" aria-selected="false" aria-controls="viewRequests">Urgent requests</button>
+  </nav>
+
+  <main>
+    <section class="card">
+      <h1 id="facilityName" style="font-size:26px"></h1>
+      <p id="dueBanner" class="banner" hidden></p>
+    </section>
+
+    <!-- Planned donations -->
+    <div id="viewPledges" role="tabpanel" aria-labelledby="tabPledges" style="display:flex;flex-direction:column;gap:20px">
+      <div class="tiles" role="group" aria-label="Filter by status">
+        <button class="tile" data-f="due" aria-pressed="true"><b id="nDue">0</b><span>Due today</span></button>
+        <button class="tile" data-f="upcoming" aria-pressed="false"><b id="nUpcoming">0</b><span>Upcoming</span></button>
+        <button class="tile" data-f="followup" aria-pressed="false"><b id="nFollow">0</b><span>Follow-up (day passed)</span></button>
+        <button class="tile" data-f="done" aria-pressed="false"><b id="nDone">0</b><span>Done</span></button>
+        <button class="tile" data-f="all" aria-pressed="false"><b id="nAll">0</b><span>All plans</span></button>
+      </div>
+      <section class="card">
+        <div class="toolbar">
+          <p class="muted" style="max-width:56ch">A donor who arrives shows a code on their phone. Find it here and confirm the donation. Donors with a day that has passed need a follow-up.</p>
+          <label>Find by code <input id="search" placeholder="K7Q-2M4" maxlength="7" autocomplete="off" style="text-transform:uppercase"></label>
+        </div>
+        <p id="count" class="muted" role="status"></p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Code</th><th>Planned day</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <p id="actionError" class="error" role="alert"></p>
+      </section>
+    </div>
+
+    <!-- Urgent requests -->
+    <div id="viewRequests" role="tabpanel" aria-labelledby="tabRequests" hidden style="display:flex;flex-direction:column;gap:20px">
+      <section class="card">
+        <h2>Publish an urgent request</h2>
+        <p class="muted">It is shown to donors with a matching blood group, near your facility. Phones pick it up within about 15 minutes, or at once while the app is open.</p>
+        <form id="reqForm" class="grid" novalidate>
+          <label>Blood group
+            <select id="rGroup" required><option value="">Choose</option><option>O-</option><option>O+</option><option>A-</option><option>A+</option><option>B-</option><option>B+</option><option>AB-</option><option>AB+</option></select>
+          </label>
+          <label><span>Units needed <span class="hint">1 to 20</span></span>
+            <input id="rUnits" type="number" min="1" max="20" step="1" inputmode="numeric" required>
+          </label>
+          <label>Urgency
+            <select id="rUrgency"><option value="CRITICAL">Critical (nearest donors)</option><option value="URGENT" selected>Urgent</option><option value="ROUTINE">Routine</option></select>
+          </label>
+          <label>Needed until
+            <input id="rExpires" type="date" required>
+          </label>
+          <label><span>Contact phone <span class="hint">optional</span></span>
+            <input id="rPhone" type="tel" inputmode="tel" placeholder="+256700000000">
+          </label>
+          <label class="wide"><span>Note <span class="hint" id="noteCount">0 of 120</span></span>
+            <input id="rNote" maxlength="120" placeholder="For example: ward 3, ask for the blood bank desk">
+          </label>
+          <div class="wide" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+            <button id="reqBtn" class="primary" type="submit">Publish to donors</button>
+            <p id="reqError" class="error" role="alert"></p>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Requests from this facility</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Group</th><th>Units</th><th>Urgency</th><th>Needed until</th><th>State</th><th>Action</th></tr></thead>
+            <tbody id="reqRows"></tbody>
+          </table>
+        </div>
+        <p id="reqListError" class="error" role="alert"></p>
+        <p class="muted">Closing a request removes it from donors' phones at their next check.</p>
+      </section>
+    </div>
+  </main>
+</div>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getDatabase, ref, get, set, push, remove, onValue, off, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyDL_4nxw_RnqkGa2HQmjs8C7Af95pIUAO4",
+  authDomain: "lifelink1234567890.firebaseapp.com",
+  databaseURL: "https://lifelink1234567890-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "lifelink1234567890"
+});
+const auth = getAuth(app);
+const db = getDatabase(app);
+const $ = (id) => document.getElementById(id);
+
+let facilityId = null, facility = null, pledgesRef = null, requestsRef = null;
+let all = [], myRequests = [], filter = "due", busy = false;
+
+/* ---------- small helpers ---------- */
+const pad = (n) => String(n).padStart(2, "0");
+const ymd = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+const today = () => ymd(new Date());
+function toast(text, bad) {
+  const t = $("toast"); t.textContent = text; t.className = "toast" + (bad ? " bad" : ""); t.hidden = false;
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.hidden = true; }, 4000);
+}
+function friendly(e) {
+  const c = (e && e.code) || "";
+  if (c.includes("PERMISSION_DENIED") || /permission/i.test((e && e.message) || "")) return "The server refused this. Check that your account is linked to this facility.";
+  if (c.includes("network") || /network|offline/i.test((e && e.message) || "")) return "No connection. Check the internet and try again.";
+  return (e && e.message) || "Something went wrong.";
+}
+function td(text, cls) { const c = document.createElement("td"); if (cls) c.className = cls; if (text != null) c.textContent = text; return c; }
+function pill(text, cls) { const s = document.createElement("span"); s.className = "pill " + cls; s.textContent = text; return s; }
+
+/* ---------- sign in ---------- */
+function setSigningIn(on) {
+  $("signinBtn").disabled = on; $("signinBtn").textContent = on ? "Signing in..." : "Sign in";
+}
+async function doSignIn() {
+  if (busy) return;
+  const email = $("email").value.trim(), password = $("password").value;
+  $("signinError").textContent = ""; $("signinNotice").hidden = true;
+  if (!email) { $("signinError").textContent = "Enter your email."; $("email").focus(); return; }
+  if (!password) { $("signinError").textContent = "Enter your password."; $("password").focus(); return; }
+  busy = true; setSigningIn(true);
+  try { await signInWithEmailAndPassword(auth, email, password); }
+  catch (err) {
+    const c = (err && err.code) || "";
+    $("signinError").textContent = c.includes("network") ? "No connection. Check the internet and try again."
+      : c.includes("too-many") ? "Too many attempts. Wait a few minutes, or reset your password."
+      : "Sign-in failed. Check the email and password.";
+    $("password").select();
+  } finally { busy = false; setSigningIn(false); }
+}
+$("signinForm").addEventListener("submit", (e) => { e.preventDefault(); doSignIn(); });
+// Belt and braces: Enter in either field always signs in.
+for (const id of ["email", "password"]) {
+  $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); doSignIn(); } });
+}
+$("togglePw").onclick = () => {
+  const show = $("password").type === "password";
+  $("password").type = show ? "text" : "password";
+  $("togglePw").textContent = show ? "Hide" : "Show"; $("togglePw").setAttribute("aria-pressed", String(show));
+};
+$("forgot").onclick = async () => {
+  const email = $("email").value.trim();
+  $("signinError").textContent = ""; $("signinNotice").hidden = true;
+  if (!email) { $("signinError").textContent = "Type your email above first, then choose this again."; $("email").focus(); return; }
+  try { await sendPasswordResetEmail(auth, email); } catch (e) { /* do not reveal whether the account exists */ }
+  $("signinNotice").textContent = "If that email has an account, a reset link has been sent.";
+  $("signinNotice").hidden = false;
+};
+$("signOut").onclick = () => signOut(auth);
+
+/* ---------- planned donations ---------- */
+function bucket(p) {
+  const t = today();
+  if (p.status === "CONFIRMED" || p.status === "DID_NOT_ATTEND" || p.status === "CANCELLED") return "done";
+  if (p.plannedDate === t) return "due";
+  if (p.plannedDate > t) return "upcoming";
+  return "followup";
+}
+function label(p) {
+  if (p.status === "CONFIRMED") return ["Confirmed", "confirmed"];
+  if (p.status === "DID_NOT_ATTEND") return ["Did not attend", "missed"];
+  if (p.status === "CANCELLED") return ["Cancelled by donor", "cancelled"];
+  return bucket(p) === "followup" ? ["Day passed, not confirmed", "missed"] : ["Planned", "planned"];
+}
+async function setStatus(p, status, button) {
+  const text = status === "CONFIRMED" ? `Confirm the donation for code ${p.donorCode}?` : `Mark code ${p.donorCode} as did not attend?`;
+  if (!window.confirm(text)) return;
+  $("actionError").textContent = ""; button.disabled = true;
+  try { await set(ref(db, `pledges/${facilityId}/${p.id}/status`), status); toast(status === "CONFIRMED" ? "Donation confirmed." : "Marked as did not attend."); }
+  catch (e) { $("actionError").textContent = "Could not save: " + friendly(e); button.disabled = false; }
+}
+function renderPledges() {
+  const q = $("search").value.trim().toUpperCase();
+  const count = (f) => all.filter((p) => bucket(p) === f).length;
+  const due = count("due"), late = count("followup");
+  $("nDue").textContent = due; $("nUpcoming").textContent = count("upcoming"); $("nFollow").textContent = late;
+  $("nDone").textContent = count("done"); $("nAll").textContent = all.length;
+  $("dueBanner").hidden = due + late === 0;
+  $("dueBanner").textContent = `${due} due today, ${late} past their day without confirmation.`;
+  document.title = (due + late > 0 ? `(${due + late}) ` : "") + "LifeLink Console";
+  const shown = all.filter((p) => (filter === "all" || bucket(p) === filter) && (!q || p.donorCode.includes(q)))
+                   .sort((a, b) => a.plannedDate.localeCompare(b.plannedDate));
+  $("count").textContent = `${shown.length} shown`;
+  const body = $("rows"); body.replaceChildren();
+  if (!shown.length) {
+    const tr = document.createElement("tr"), c = td(q ? "No plan with that code." : "Nothing here right now.", "empty"); c.colSpan = 4; tr.append(c); body.append(tr); return;
+  }
+  for (const p of shown) {
+    const tr = document.createElement("tr");
+    const st = document.createElement("td"); const [text, cls] = label(p); st.append(pill(text, cls));
+    const act = td(null, "actions");
+    if (p.status === "PLANNED" || p.status === "DID_NOT_ATTEND") {
+      const ok = document.createElement("button"); ok.className = "primary btn-small"; ok.textContent = "Confirm donation";
+      ok.onclick = () => setStatus(p, "CONFIRMED", ok); act.append(ok);
+    }
+    if (p.status === "PLANNED") {
+      const no = document.createElement("button"); no.className = "btn-small"; no.textContent = "Did not attend";
+      no.onclick = () => setStatus(p, "DID_NOT_ATTEND", no); act.append(no);
+    }
+    tr.append(td(p.donorCode, "code"), td(p.plannedDate), st, act); body.append(tr);
+  }
+}
+for (const b of document.querySelectorAll(".tile")) {
+  b.onclick = () => { filter = b.dataset.f; document.querySelectorAll(".tile").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); renderPledges(); };
+}
+$("search").oninput = renderPledges;
+$("search").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  const q = $("search").value.trim().toUpperCase();
+  if (q) { filter = "all"; document.querySelectorAll(".tile").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.f === "all"))); renderPledges(); }
+});
+
+/* ---------- tabs ---------- */
+function showTab(name) {
+  const p = name === "pledges";
+  $("viewPledges").hidden = !p; $("viewRequests").hidden = p;
+  $("tabPledges").setAttribute("aria-selected", String(p)); $("tabRequests").setAttribute("aria-selected", String(!p));
+}
+$("tabPledges").onclick = () => showTab("pledges");
+$("tabRequests").onclick = () => showTab("requests");
+
+/* ---------- urgent requests ---------- */
+function resetRequestForm() {
+  $("reqForm").reset(); $("noteCount").textContent = "0 of 120"; $("reqError").textContent = "";
+  const min = new Date(), max = new Date(), def = new Date();
+  max.setDate(max.getDate() + 30); def.setDate(def.getDate() + 2);
+  $("rExpires").min = ymd(min); $("rExpires").max = ymd(max); $("rExpires").value = ymd(def);
+}
+$("rNote").oninput = () => { $("noteCount").textContent = `${$("rNote").value.length} of 120`; };
+$("reqForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const err = (m, el) => { $("reqError").textContent = m; if (el) el.focus(); };
+  $("reqError").textContent = "";
+  const group = $("rGroup").value, units = Number($("rUnits").value), phone = $("rPhone").value.trim().replace(/[\s-]/g, "");
+  const note = $("rNote").value.trim(), dateText = $("rExpires").value;
+  if (!group) return err("Choose a blood group.", $("rGroup"));
+  if (!Number.isInteger(units) || units < 1 || units > 20) return err("Units must be a whole number from 1 to 20.", $("rUnits"));
+  if (!dateText) return err("Choose the last day the blood is needed.", $("rExpires"));
+  if (dateText < today()) return err("The last day cannot be in the past.", $("rExpires"));
+  if (phone && !/^\+?[0-9]{9,15}$/.test(phone)) return err("Enter the phone number with digits only, 9 to 15 of them.", $("rPhone"));
+  const [y, m, d] = dateText.split("-").map(Number);
+  const expiresAt = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+  const entry = { facility: facility.name, facilityId, bloodGroup: group, units, urgency: $("rUrgency").value, verified: true, postedAt: serverTimestamp(), expiresAt };
+  if (note) entry.note = note;
+  if (phone) entry.contactPhone = phone;
+  if (typeof facility.lat === "number" && typeof facility.lng === "number") { entry.lat = facility.lat; entry.lng = facility.lng; }
+  $("reqBtn").disabled = true; $("reqBtn").textContent = "Publishing...";
+  try { await set(push(ref(db, "requests")), entry); toast("Request published."); resetRequestForm(); }
+  catch (ex) { $("reqError").textContent = "Could not publish: " + friendly(ex); }
+  finally { $("reqBtn").disabled = false; $("reqBtn").textContent = "Publish to donors"; }
+});
+async function closeRequest(r, button) {
+  if (!window.confirm(`Close the request for ${r.units} unit(s) of ${r.bloodGroup}?`)) return;
+  button.disabled = true;
+  try { await remove(ref(db, `requests/${r.id}`)); toast("Request closed."); }
+  catch (e) { $("reqListError").textContent = "Could not close: " + friendly(e); button.disabled = false; }
+}
+function renderRequests() {
+  const now = Date.now();
+  const body = $("reqRows"); body.replaceChildren();
+  const rows = myRequests.slice().sort((a, b) => (b.postedAt || 0) - (a.postedAt || 0));
+  if (!rows.length) {
+    const tr = document.createElement("tr"), c = td("No requests published from this console yet.", "empty"); c.colSpan = 6; tr.append(c); body.append(tr); return;
+  }
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    const g = document.createElement("td"); const gb = document.createElement("span"); gb.className = "group"; gb.textContent = r.bloodGroup; g.append(gb);
+    const u = document.createElement("td"); const key = String(r.urgency || "ROUTINE").toLowerCase();
+    u.append(pill(key.charAt(0).toUpperCase() + key.slice(1), ["critical", "urgent", "routine"].includes(key) ? key : "routine"));
+    const expired = r.expiresAt > 0 && r.expiresAt <= now;
+    const until = r.expiresAt ? ymd(new Date(r.expiresAt)) : "No end";
+    const st = document.createElement("td"); st.append(expired ? pill("Expired", "cancelled") : pill("Live", "confirmed"));
+    const act = td(null, "actions"); const close = document.createElement("button"); close.className = "btn-small"; close.textContent = "Close";
+    close.onclick = () => closeRequest(r, close); act.append(close);
+    tr.append(g, td(String(r.units)), u, td(until), st, act); body.append(tr);
+  }
+}
+
+/* ---------- session ---------- */
+function stopListening() {
+  if (pledgesRef) { off(pledgesRef); pledgesRef = null; }
+  if (requestsRef) { off(requestsRef); requestsRef = null; }
+}
+onAuthStateChanged(auth, async (user) => {
+  stopListening(); all = []; myRequests = []; facilityId = null; facility = null;
+  $("signin").hidden = !!user; $("app").hidden = true;
+  $("who").textContent = user ? user.email : "";
+  document.title = "LifeLink Console";
+  if (!user) return;
+  let staff = null;
+  try { staff = (await get(ref(db, `staff/${user.uid}`))).val(); } catch (e) { staff = null; }
+  if (!staff || !staff.facilityId) {
+    $("signin").hidden = false; $("signinError").textContent = "This account is not linked to a facility. Ask an administrator.";
+    await signOut(auth); return;
+  }
+  facilityId = staff.facilityId;
+  try { facility = (await get(ref(db, `facilities/${facilityId}`))).val(); } catch (e) { facility = null; }
+  if (!facility || !facility.name) facility = { name: facilityId };
+  $("facilityName").textContent = facility.name;
+  showTab("pledges"); resetRequestForm();
+  $("app").hidden = false;
+
+  pledgesRef = ref(db, `pledges/${facilityId}`);
+  onValue(pledgesRef, (snap) => {
+    all = []; snap.forEach((c) => { all.push(Object.assign({ id: c.key }, c.val())); }); renderPledges();
+  }, (err) => { $("actionError").textContent = "Cannot read plans: " + friendly(err); });
+
+  requestsRef = ref(db, "requests");
+  onValue(requestsRef, (snap) => {
+    myRequests = []; $("reqListError").textContent = "";
+    snap.forEach((c) => { const v = c.val(); if (v && v.facilityId === facilityId) myRequests.push(Object.assign({ id: c.key }, v)); });
+    renderRequests();
+  }, (err) => { $("reqListError").textContent = "Cannot read requests: " + friendly(err); });
+});
+setInterval(() => { if (facilityId) { renderPledges(); renderRequests(); } }, 60000); // buckets move at midnight, requests expire
+</script>
+</body>
+</html>

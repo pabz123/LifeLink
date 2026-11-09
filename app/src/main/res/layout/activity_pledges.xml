@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Plan a donation: pick a facility and a day, save. The list below shows every pledge. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background"
+    android:fitsSystemWindows="true"
+    android:orientation="vertical"
+    android:padding="@dimen/space_m">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:layout_width="@dimen/touch_target"
+            android:layout_height="@dimen/touch_target"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/content_back"
+            android:src="@drawable/ic_arrow_back"
+            android:tint="@color/text_secondary" />
+
+        <TextView
+            style="@style/LL.Text.Title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/space_s"
+            android:layout_weight="1"
+            android:text="@string/title_pledges" />
+    </LinearLayout>
+
+    <TextView
+        style="@style/LL.Text.Caption"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_xs"
+        android:text="@string/pledge_intro" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/layoutPledgeFacility"
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_m"
+        android:hint="@string/hint_facility"
+        app:errorEnabled="true">
+
+        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+            android:id="@+id/txtPledgeFacility"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:freezesText="true"
+            android:inputType="none"
+            android:maxLines="1" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/tvPledgeDate"
+            style="@style/LL.Text.Body"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1" />
+
+        <Button
+            android:id="@+id/btnPledgeDate"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="@dimen/touch_target"
+            android:text="@string/action_choose_date"
+            android:textSize="@dimen/text_body" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvPledgeError"
+        style="@style/LL.Text.Error"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_xs"
+        android:visibility="gone" />
+
+    <CheckBox
+        android:id="@+id/chkShare"
+        style="@style/LL.Text.Body"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="@dimen/touch_target"
+        android:text="@string/pledge_share_label" />
+
+    <TextView
+        style="@style/LL.Text.Caption"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/pledge_share_detail" />
+
+    <Button
+        android:id="@+id/btnPledgeSave"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_s"
+        android:minHeight="@dimen/touch_target"
+        android:text="@string/pledge_save"
+        android:textSize="@dimen/text_body" />
+
+    <TextView
+        android:id="@+id/tvPledgeEmpty"
+        style="@style/LL.Text.Caption"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_m"
+        android:text="@string/pledge_empty"
+        android:visibility="gone" />
+
+    <ListView
+        android:id="@+id/listPledges"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="@dimen/space_m"
+        android:layout_weight="1" />
+</LinearLayout>

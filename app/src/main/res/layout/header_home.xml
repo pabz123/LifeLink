@@ -93,6 +93,32 @@
         android:text="@string/urgent_header" />
 
     <TextView
+        android:id="@+id/tvFeedStatus"
+        style="@style/LL.Text.Caption"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_xs"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/tvLocationPrompt"
+        style="@style/LL.Text.Caption"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_xs"
+        android:visibility="gone" />
+
+    <Button
+        android:id="@+id/btnLocation"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:minHeight="@dimen/touch_target"
+        android:text="@string/location_allow"
+        android:textSize="@dimen/text_body"
+        android:visibility="gone" />
+
+    <TextView
         android:id="@+id/tvUrgentHint"
         style="@style/LL.Text.Caption"
         android:layout_width="match_parent"
@@ -132,6 +158,15 @@
             android:text="@string/action_add"
             android:textSize="@dimen/text_body" />
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvSelfReported"
+        style="@style/LL.Text.Caption"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_xs"
+        android:text="@string/self_reported_note"
+        android:visibility="gone" />
 
     <TextView
         android:id="@+id/tvEmptyRecords"

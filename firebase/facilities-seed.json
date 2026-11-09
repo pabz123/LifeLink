@@ -1,0 +1,137 @@
+{
+  "nakasero-blood-bank-ubts": {
+    "name": "Nakasero Blood Bank (UBTS)",
+    "lat": 0.319,
+    "lng": 32.577
+  },
+  "mulago-national-referral-hospital": {
+    "name": "Mulago National Referral Hospital",
+    "lat": 0.3376,
+    "lng": 32.5763
+  },
+  "nsambya-hospital": {
+    "name": "Nsambya Hospital",
+    "lat": 0.299,
+    "lng": 32.589
+  },
+  "lubaga-hospital": {
+    "name": "Lubaga Hospital",
+    "lat": 0.3027,
+    "lng": 32.5527
+  },
+  "mengo-hospital": {
+    "name": "Mengo Hospital",
+    "lat": 0.3,
+    "lng": 32.56
+  },
+  "nakasero-hospital": {
+    "name": "Nakasero Hospital",
+    "lat": 0.318,
+    "lng": 32.578
+  },
+  "mbarara-regional-blood-bank-ubts": {
+    "name": "Mbarara Regional Blood Bank (UBTS)",
+    "lat": -0.6072,
+    "lng": 30.6545
+  },
+  "mbarara-regional-referral-hospital": {
+    "name": "Mbarara Regional Referral Hospital",
+    "lat": -0.6072,
+    "lng": 30.6545
+  },
+  "mbale-regional-blood-bank-ubts": {
+    "name": "Mbale Regional Blood Bank (UBTS)",
+    "lat": 1.0775,
+    "lng": 34.1753
+  },
+  "mbale-regional-referral-hospital": {
+    "name": "Mbale Regional Referral Hospital",
+    "lat": 1.0775,
+    "lng": 34.1753
+  },
+  "bududa-health-centre": {
+    "name": "Bududa Health Centre",
+    "lat": 0.998,
+    "lng": 34.334
+  },
+  "gulu-regional-blood-bank-ubts": {
+    "name": "Gulu Regional Blood Bank (UBTS)",
+    "lat": 2.7746,
+    "lng": 32.299
+  },
+  "gulu-regional-referral-hospital": {
+    "name": "Gulu Regional Referral Hospital",
+    "lat": 2.7746,
+    "lng": 32.299
+  },
+  "arua-regional-blood-bank-ubts": {
+    "name": "Arua Regional Blood Bank (UBTS)",
+    "lat": 3.02,
+    "lng": 30.91
+  },
+  "arua-regional-referral-hospital": {
+    "name": "Arua Regional Referral Hospital",
+    "lat": 3.02,
+    "lng": 30.91
+  },
+  "fort-portal-regional-blood-bank-ubts": {
+    "name": "Fort Portal Regional Blood Bank (UBTS)",
+    "lat": 0.671,
+    "lng": 30.275
+  },
+  "fort-portal-regional-referral-hospital": {
+    "name": "Fort Portal Regional Referral Hospital",
+    "lat": 0.671,
+    "lng": 30.275
+  },
+  "kabale-regional-blood-bank-ubts": {
+    "name": "Kabale Regional Blood Bank (UBTS)",
+    "lat": -1.249,
+    "lng": 29.9899
+  },
+  "kabale-regional-referral-hospital": {
+    "name": "Kabale Regional Referral Hospital",
+    "lat": -1.249,
+    "lng": 29.9899
+  },
+  "hoima-regional-blood-bank-ubts": {
+    "name": "Hoima Regional Blood Bank (UBTS)",
+    "lat": 1.4331,
+    "lng": 31.3524
+  },
+  "hoima-regional-referral-hospital": {
+    "name": "Hoima Regional Referral Hospital",
+    "lat": 1.4331,
+    "lng": 31.3524
+  },
+  "soroti-regional-blood-bank-ubts": {
+    "name": "Soroti Regional Blood Bank (UBTS)",
+    "lat": 1.715,
+    "lng": 33.611
+  },
+  "soroti-regional-referral-hospital": {
+    "name": "Soroti Regional Referral Hospital",
+    "lat": 1.715,
+    "lng": 33.611
+  },
+  "lira-regional-referral-hospital": {
+    "name": "Lira Regional Referral Hospital",
+    "lat": 2.2499,
+    "lng": 32.8998
+  },
+  "jinja-regional-referral-hospital": {
+    "name": "Jinja Regional Referral Hospital",
+    "lat": 0.4244,
+    "lng": 33.2041
+  },
+  "masaka-regional-referral-hospital": {
+    "name": "Masaka Regional Referral Hospital",
+    "lat": -0.3136,
+    "lng": 31.7413
+  },
+  "kitovu-hospital": {
+    "name": "Kitovu Hospital",
+    "lat": -0.33,
+    "lng": 31.73
+  }
+}

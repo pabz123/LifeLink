@@ -119,14 +119,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/space_s"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:orientation="vertical">
 
                 <CheckBox
                     android:id="@+id/chkRemember"
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:minHeight="@dimen/touch_target"
                     android:text="@string/remember_me"
                     android:textSize="@dimen/text_body" />
@@ -136,6 +134,7 @@
                     style="@style/LL.Text.Body"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_gravity="end"
                     android:background="?attr/selectableItemBackground"
                     android:clickable="true"
                     android:focusable="true"
@@ -170,6 +169,19 @@
                 android:text="@string/link_register"
                 android:textColor="@color/brand_primary"
                 android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvLanguageLink"
+                style="@style/LL.Text.Body"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:minHeight="@dimen/touch_target"
+                android:text="@string/menu_language"
+                android:textColor="@color/text_secondary" />
         </LinearLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
 </ScrollView>
