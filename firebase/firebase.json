@@ -1,0 +1,6 @@
+{
+  "hosting": {
+    "public": "console",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+  }
+}
