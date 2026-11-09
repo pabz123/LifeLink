@@ -90,6 +90,11 @@ t('bad phone refused', !can(wr('staffM', '/requests/n1', req({ contactPhone: 'ca
 t('expiry before posting refused', !can(wr('staffM', '/requests/n1', req({ expiresAt: NOW - 1 }))));
 t('backdated posting refused', !can(wr('staffM', '/requests/n1', req({ postedAt: NOW - 3600000, expiresAt: NOW + 1000 }))));
 t('extra field refused', !can(wr('staffM', '/requests/n1', Object.assign(req(), { hack: 1 }))));
+t('staff can extend their own request', can(wr('staffM', '/requests/r1/expiresAt', 1700172800000)));
+t('other facility staff cannot extend it', !can(wr('staffK', '/requests/r1/expiresAt', 1700172800000)));
+t('donor cannot extend it', !can(wr('donor1', '/requests/r1/expiresAt', 1700172800000)));
+t('staff cannot shorten a request to before it was posted', !can(wr('staffM', '/requests/r1/expiresAt', 1600000000000)));
+t('staff cannot change the owning facility of a request', !can(wr('staffM', '/requests/r1/facilityId', K)));
 t('staff can close their own request', can(wr('staffM', '/requests/r1', null)));
 t('other facility staff cannot close it', !can(wr('staffK', '/requests/r1', null)));
 t('donor cannot close it', !can(wr('donor1', '/requests/r1', null)));
