@@ -251,6 +251,10 @@
     <string name="error_pledge_past">The day cannot be in the past.</string>
     <string name="error_pledge_not_eligible">You can donate again from %1$s. Choose that day or a later one.</string>
     <string name="error_pledge_far">Choose a day within the next 90 days.</string>
+    <string name="console_card_title">Publish requests to donors</string>
+    <string name="console_card_text">Requests that donors can see are published from the LifeLink Console in a web browser, by staff whose account an administrator linked to this facility. Requests you add here stay on this phone.</string>
+    <string name="console_card_button">Open the LifeLink Console</string>
+    <string name="error_no_browser">No web browser was found on this device.</string>
     <string name="error_no_calendar">No calendar app was found on this device.</string>
     <string name="pledge_channel_name">Donation reminders</string>
     <string name="pledge_channel_description">A reminder on the day of a donation you planned</string>

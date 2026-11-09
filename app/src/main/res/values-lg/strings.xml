@@ -219,6 +219,10 @@
     <string name="pledge_share_sent">eyabuulirwa eddwaliro</string>
     <string name="pledge_remote_confirmed">Eddwaliro likakasizza</string>
     <string name="pledge_remote_missed">eddwaliro lyawandiise nti teyajja</string>
+    <string name="console_card_title">Tereka okusaba eri abagabi</string>
+    <string name="console_card_text">Okusaba abagabi kwe balaba kuteekebwawo mu LifeLink Console ku browser, abakozi akawunti zaabwe administrator z'agatta ku ddwaliro lino. Okusaba kw'oteeka wano kusigala ku ssimu eno.</string>
+    <string name="console_card_button">Ggulawo LifeLink Console</string>
+    <string name="error_no_browser">Tewali browser ku kyuma kino.</string>
     <plurals name="ring_days_to_go">
         <item quantity="one">Olunaku lusigaddeyo</item>
         <item quantity="other">ennaku zisigaddeyo</item>

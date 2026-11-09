@@ -44,6 +44,7 @@ import ug.lifelink.app.model.BloodRecord;
 import ug.lifelink.app.location.DeviceLocation;
 import ug.lifelink.app.location.LocationStore;
 import ug.lifelink.app.model.UrgentRequest;
+import ug.lifelink.app.net.FirebaseConfig;
 import ug.lifelink.app.net.RequestFeedClient;
 import ug.lifelink.app.net.RequestFeedParser;
 import ug.lifelink.app.model.User;
@@ -101,6 +102,7 @@ public class HomeActivity extends AppCompatActivity {
     private LinearLayout llUrgent;
     private TextView tvListHeader;
     private TextView tvSelfReported;
+    private View cardConsole;
     private TextView tvEmptyRecords;
     private Button btnAddRecord;
     private TextView tvFeedStatus;
@@ -295,6 +297,8 @@ public class HomeActivity extends AppCompatActivity {
         llUrgent = header.findViewById(R.id.llUrgent);
         tvListHeader = header.findViewById(R.id.tvListHeader);
         tvSelfReported = header.findViewById(R.id.tvSelfReported);
+        cardConsole = header.findViewById(R.id.cardConsole);
+        header.findViewById(R.id.btnOpenConsole).setOnClickListener(v -> openConsole());
         tvEmptyRecords = header.findViewById(R.id.tvEmptyRecords);
         btnAddRecord = header.findViewById(R.id.btnAddRecord);
         tvFeedStatus = header.findViewById(R.id.tvFeedStatus);
@@ -355,6 +359,7 @@ public class HomeActivity extends AppCompatActivity {
 
         showRecords(records);
 
+        cardConsole.setVisibility(user.isHospital() ? View.VISIBLE : View.GONE);
         if (user.isHospital()) {
             tvListHeader.setText(R.string.list_header_hospital);
             tvSelfReported.setVisibility(View.GONE);
@@ -385,6 +390,15 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     /** Reloads this user's records from the database (off the main thread) and shows them. */
+    /** Hospital staff publish from the web console. A normal browser intent needs no permission. */
+    private void openConsole() {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(FirebaseConfig.CONSOLE_URL)));
+        } catch (android.content.ActivityNotFoundException e) {
+            Toast.makeText(this, R.string.error_no_browser, Toast.LENGTH_LONG).show();
+        }
+    }
+
     private void refreshRecords() {
         final long userId = currentUser.getId();
         worker.execute(() -> {

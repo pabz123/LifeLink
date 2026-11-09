@@ -84,6 +84,39 @@
         </LinearLayout>
     </LinearLayout>
 
+    <LinearLayout
+        android:id="@+id/cardConsole"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/space_l"
+        android:background="@drawable/bg_card"
+        android:orientation="vertical"
+        android:padding="@dimen/space_m"
+        android:visibility="gone">
+
+        <TextView
+            style="@style/LL.Text.Title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/console_card_title" />
+
+        <TextView
+            style="@style/LL.Text.Body"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_xs"
+            android:text="@string/console_card_text" />
+
+        <Button
+            android:id="@+id/btnOpenConsole"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_s"
+            android:minHeight="@dimen/touch_target"
+            android:text="@string/console_card_button"
+            android:textSize="@dimen/text_body" />
+    </LinearLayout>
+
     <TextView
         android:id="@+id/tvUrgentHeader"
         style="@style/LL.Text.Title"

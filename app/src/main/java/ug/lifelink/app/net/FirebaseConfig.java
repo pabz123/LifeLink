@@ -9,6 +9,8 @@ public final class FirebaseConfig {
 
     public static final String DATABASE_URL =
             "https://lifelink1234567890-default-rtdb.europe-west1.firebasedatabase.app";
+    /** The hospital staff console (Firebase Hosting). Opened in the browser, never inside the app. */
+    public static final String CONSOLE_URL = "https://lifelink1234567890.web.app";
     public static final String WEB_API_KEY = "AIzaSyDL_4nxw_RnqkGa2HQmjs8C7Af95pIUAO4";
 
     private FirebaseConfig() {
