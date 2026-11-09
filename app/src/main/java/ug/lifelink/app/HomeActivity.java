@@ -34,6 +34,7 @@ import java.util.concurrent.Executors;
 import ug.lifelink.app.alert.AlertNotifier;
 import ug.lifelink.app.alert.AlertScheduler;
 import ug.lifelink.app.alert.AlertSettings;
+import ug.lifelink.app.alert.RequestChecker;
 import ug.lifelink.app.data.AppData;
 import ug.lifelink.app.data.RecordRepository;
 import ug.lifelink.app.data.RequestCache;
@@ -592,6 +593,13 @@ public class HomeActivity extends AppCompatActivity {
                 }
                 saved = requestCache.listAll();
                 fetchedAt = requestCache.lastFetchedAt();
+                // The background job only runs for a remembered user, and waits up to 15 minutes.
+                // While the app is open, check the fresh list now so a new request alerts at once.
+                try {
+                    RequestChecker.run(getApplicationContext(), user.getId(), false);
+                } catch (RuntimeException e) {
+                    Log.w(TAG, "Alert check while open failed", e);
+                }
             } catch (RuntimeException e) {
                 Log.e(TAG, "Could not read the saved requests", e);
             }
